@@ -19,7 +19,8 @@ app.add_middleware(
     allow_origins=[
     "http://localhost:5173",
     "http://localhost:5174",
-    ],
+    "https://codedoctor-uejj.onrender.com",
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
