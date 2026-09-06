@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 function App() {
   const [code, setCode] = useState('');
+  const [language, setLanguage] = useState('javascript');
   const [isDebugging, setIsDebugging] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -14,16 +15,19 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('https://codedoctor-gnbw.onrender.com/debug', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: code,
-          language: 'javascript',
-        }),
-      });
+      const response = await fetch(
+        'https://codedoctor-gnbw.onrender.com/debug',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: code,
+            language: language,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to analyze code');
@@ -45,7 +49,8 @@ function App() {
       const fixedCode = analysis
         .split('FIXED_CODE:')[1]
         ?.split('CONCEPT:')[0]
-        .replace(/```javascript|```/g, '')
+        .replace(/```[a-zA-Z0-9+#.-]*\n?/g, '')
+        .replace(/```/g, '')
         .trim();
 
       const concept = analysis
@@ -113,14 +118,25 @@ function App() {
             <div className="panel-header">
               <div>
                 <span className="panel-title">Your Code</span>
-                <span className="panel-language">JavaScript</span>
+
+                <select
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                  className="language-select"
+                >
+                  <option value="javascript">JavaScript</option>
+                  <option value="python">Python</option>
+                  <option value="typescript">TypeScript</option>
+                  <option value="java">Java</option>
+                  <option value="cpp">C++</option>
+                </select>
               </div>
             </div>
 
             <textarea
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              placeholder="// Paste your code here..."
+              placeholder={`// Paste your ${language} code here...`}
               spellCheck="false"
             />
 

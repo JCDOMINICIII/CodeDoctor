@@ -2,48 +2,91 @@
 
 ### Don't just fix your code. Understand it.
 
-CodeDoctor is an AI-powered debugging assistant designed to help developers understand **why their code is broken**, not just receive a corrected version.
+CodeDoctor is an AI-powered coding assistant that helps developers **find bugs, understand why they happen, and learn how to fix them**.
 
-Paste your code, choose your programming language, and CodeDoctor analyzes the problem, explains why it happens, provides a fix, identifies the programming concept involved, and gives you a learning tip.
+Instead of simply giving you a corrected answer, CodeDoctor explains the problem like a coding teacher.
 
-## 🚀 Live Demo
+🌐 **Live Demo:** https://codedoctor-uejj.onrender.com
 
-**[Try CodeDoctor](https://codedoctor-uejj.onrender.com)**
+---
 
-## 💡 The Problem
+## 🚀 The Problem
 
-When beginners encounter a programming error, the easiest solution is often to copy an answer from Stack Overflow, Google, or an AI assistant.
+When beginners encounter bugs, they often copy an error message into an AI tool and receive a solution without understanding what went wrong.
 
-The code may work — but the developer may still not understand **why it was broken in the first place**.
+This creates a cycle of:
 
-CodeDoctor focuses on turning debugging into a learning experience.
+> **Bug → Copy solution → Paste solution → Move on → Learn nothing**
 
-## ✨ Features
+CodeDoctor takes a different approach.
 
-* 🐛 **Bug Detection** — identifies problems in your code
-* 💡 **Clear Explanations** — explains why the problem happens
+It explains **what is wrong, why it is wrong, how to fix it, and what programming concept is involved.**
+
+---
+
+## 💡 What CodeDoctor Does
+
+Paste your code, select your programming language, and click **Debug Code**.
+
+CodeDoctor provides:
+
+* 🐛 **What's Wrong** — identifies the main problem
+* 💡 **Why** — explains why the problem occurs
 * 🔧 **Fixed Code** — provides a corrected version
-* 🧠 **Concept Identification** — connects the bug to a programming concept
-* 📚 **Learning Tips** — provides advice to help developers avoid similar mistakes
-* ⚡ **AI-Powered Analysis** — uses Google's Gemini models to analyze submitted code
+* 🧠 **Concept** — identifies the programming concept involved
+* 📚 **Learning Tip** — gives advice to help prevent similar mistakes
 
-## 🧠 How It Works
+---
+
+## 🌎 Supported Languages
+
+CodeDoctor currently supports:
+
+* JavaScript
+* Python
+* TypeScript
+* Java
+* C++
+
+The language selected by the user is sent to the AI so CodeDoctor can analyze the code according to the correct programming language.
+
+---
+
+## ⚙️ How It Works
 
 ```text
-Developer
-    ↓
-Paste Code
-    ↓
-CodeDoctor Frontend
-    ↓
-FastAPI Backend
-    ↓
-Gemini AI
-    ↓
-Structured Debugging Analysis
-    ↓
-Developer Learns From The Error
+┌─────────────────────┐
+│   User Pastes Code  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Select Programming  │
+│      Language       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   React Frontend    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   FastAPI Backend   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│     Gemini AI       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Structured Analysis │
+└─────────────────────┘
 ```
+
+---
 
 ## 🛠️ Tech Stack
 
@@ -58,67 +101,101 @@ Developer Learns From The Error
 
 * Python
 * FastAPI
+* Pydantic
 * Uvicorn
 
 ### AI
 
-* Google Gemini
-* Gemini OpenAI-compatible API
+* Google Gemini API
+* Gemini Flash Lite
 
 ### Deployment
 
-* Render
 * GitHub
+* Render
 
-## 🎯 Example
+---
 
-### Broken Code
+## 🧪 Example
 
-```javascript
-const name = "Jethro";
-
-console.log(nam);
-```
-
-### CodeDoctor identifies
-
-**Problem:** `nam` is not defined.
-
-**Explanation:** The variable was declared as `name`, but the code attempts to access `nam`.
-
-**Fixed Code:**
+### Input
 
 ```javascript
-const name = "Jethro";
+const username = "Jethro";
 
-console.log(name);
+console.log(usernme);
 ```
 
-**Concept:** Variables and reference errors.
+### CodeDoctor
 
-**Learning Tip:** Always check that the variable name you use matches the name you declared.
+**🐛 What's Wrong**
 
-## 🌱 Future Vision
+`usernme` is not defined.
 
-CodeDoctor is currently an MVP, but the long-term vision is to become an AI-powered learning companion for developers.
+**💡 Why**
 
-Potential future features include:
+The variable was created using the name `username`, but the code tries to access `usernme`.
 
-* Interactive debugging lessons
-* Personalized learning paths
-* Coding exercises generated from a user's mistakes
-* Developer skill and weakness tracking
-* VS Code extension
-* Support for more programming languages
-* AI-powered code reviews
-* University and bootcamp integrations
+**🔧 Fixed Code**
 
-## 👨🏽‍💻 Built For
+```javascript
+const username = "Jethro";
+
+console.log(username);
+```
+
+**🧠 Concept**
+
+Variable naming and reference errors.
+
+**📚 Learning Tip**
+
+Make sure variable names are spelled consistently when declaring and using them.
+
+---
+
+## 🎯 Why CodeDoctor?
+
+Most AI coding assistants focus on getting you the answer.
+
+CodeDoctor focuses on helping you **understand the answer**.
+
+The goal is to make debugging part of the learning process.
+
+---
+
+## 🔮 Future Vision
+
+CodeDoctor is designed to grow beyond a simple debugging tool.
+
+Future features could include:
+
+* 📖 Interactive coding lessons
+* 🧩 AI-generated coding exercises
+* 📊 Personalized learning progress
+* 🧠 Tracking recurring programming mistakes
+* 💻 VS Code extension
+* 📝 Debugging history
+* 👨‍🏫 AI programming tutor
+* 🎓 Tools for universities and coding bootcamps
+* 🤝 Collaborative debugging
+
+The long-term vision is to build an AI developer companion that helps programmers **become better developers, not just finish their code.**
+
+---
+
+## 🏆 Built For
 
 **MIVA May Cohort 25 AI Build Challenge**
 
-Built as a lightweight functional AI application demonstrating how AI can transform debugging from a frustrating experience into an opportunity to learn.
+CodeDoctor was built as a lightweight, functional AI project focused on solving a real problem for beginner and intermediate programmers.
 
-## 📄 License
+---
 
-This project is currently an MVP created for educational and hackathon purposes.
+## 👨‍💻 Built With
+
+Built with curiosity, caffeine, and a lot of debugging. ☕🐛
+
+**CodeDoctor**
+
+> Don't just fix your code. Understand it.

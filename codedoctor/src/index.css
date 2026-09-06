@@ -265,3 +265,19 @@ textarea::placeholder {
   line-height: 1.7;
   white-space: pre-wrap;
 }
+
+.language-select {
+  background: #16191f;
+  color: #dce0e6;
+  border: 1px solid #2a2f38;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-left: 12px;
+  font: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.language-select:focus {
+  border-color: #555;
+}
