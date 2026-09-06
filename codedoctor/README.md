@@ -1,16 +1,124 @@
-# React + Vite
+# 🐛 CodeDoctor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### Don't just fix your code. Understand it.
 
-Currently, two official plugins are available:
+CodeDoctor is an AI-powered debugging assistant designed to help developers understand **why their code is broken**, not just receive a corrected version.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Paste your code, choose your programming language, and CodeDoctor analyzes the problem, explains why it happens, provides a fix, identifies the programming concept involved, and gives you a learning tip.
 
-## React Compiler
+## 🚀 Live Demo
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**[Try CodeDoctor](https://codedoctor-uejj.onrender.com)**
 
-## Expanding the ESLint configuration
+## 💡 The Problem
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+When beginners encounter a programming error, the easiest solution is often to copy an answer from Stack Overflow, Google, or an AI assistant.
+
+The code may work — but the developer may still not understand **why it was broken in the first place**.
+
+CodeDoctor focuses on turning debugging into a learning experience.
+
+## ✨ Features
+
+* 🐛 **Bug Detection** — identifies problems in your code
+* 💡 **Clear Explanations** — explains why the problem happens
+* 🔧 **Fixed Code** — provides a corrected version
+* 🧠 **Concept Identification** — connects the bug to a programming concept
+* 📚 **Learning Tips** — provides advice to help developers avoid similar mistakes
+* ⚡ **AI-Powered Analysis** — uses Google's Gemini models to analyze submitted code
+
+## 🧠 How It Works
+
+```text
+Developer
+    ↓
+Paste Code
+    ↓
+CodeDoctor Frontend
+    ↓
+FastAPI Backend
+    ↓
+Gemini AI
+    ↓
+Structured Debugging Analysis
+    ↓
+Developer Learns From The Error
+```
+
+## 🛠️ Tech Stack
+
+### Frontend
+
+* React
+* Vite
+* JavaScript
+* CSS
+
+### Backend
+
+* Python
+* FastAPI
+* Uvicorn
+
+### AI
+
+* Google Gemini
+* Gemini OpenAI-compatible API
+
+### Deployment
+
+* Render
+* GitHub
+
+## 🎯 Example
+
+### Broken Code
+
+```javascript
+const name = "Jethro";
+
+console.log(nam);
+```
+
+### CodeDoctor identifies
+
+**Problem:** `nam` is not defined.
+
+**Explanation:** The variable was declared as `name`, but the code attempts to access `nam`.
+
+**Fixed Code:**
+
+```javascript
+const name = "Jethro";
+
+console.log(name);
+```
+
+**Concept:** Variables and reference errors.
+
+**Learning Tip:** Always check that the variable name you use matches the name you declared.
+
+## 🌱 Future Vision
+
+CodeDoctor is currently an MVP, but the long-term vision is to become an AI-powered learning companion for developers.
+
+Potential future features include:
+
+* Interactive debugging lessons
+* Personalized learning paths
+* Coding exercises generated from a user's mistakes
+* Developer skill and weakness tracking
+* VS Code extension
+* Support for more programming languages
+* AI-powered code reviews
+* University and bootcamp integrations
+
+## 👨🏽‍💻 Built For
+
+**MIVA May Cohort 25 AI Build Challenge**
+
+Built as a lightweight functional AI application demonstrating how AI can transform debugging from a frustrating experience into an opportunity to learn.
+
+## 📄 License
+
+This project is currently an MVP created for educational and hackathon purposes.
