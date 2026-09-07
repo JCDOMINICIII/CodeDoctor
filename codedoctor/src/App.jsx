@@ -16,7 +16,7 @@ function App() {
 
     try {
       const response = await fetch(
-        'https://codedoctor-gnbw.onrender.com/debug',
+  'http://127.0.0.1:8000/debug',
         {
           method: 'POST',
           headers: {
