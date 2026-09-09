@@ -426,7 +426,7 @@ function App() {
                 </h2>
 
                 <p>
-                  CodeDoctor is executing your {language}
+                  CodeDoctor is executing your {language} 
                   code and checking the result.
                 </p>
 
