@@ -2,6 +2,7 @@ import subprocess
 import sys
 import tempfile
 import os
+import shutil
 
 
 # ==========================================
@@ -13,7 +14,9 @@ def run_process(command, timeout=5):
     Run a command in a separate process and capture
     its output and error.
     """
+
     try:
+
         result = subprocess.run(
             command,
             capture_output=True,
@@ -22,6 +25,7 @@ def run_process(command, timeout=5):
         )
 
         if result.returncode != 0:
+
             return {
                 "success": False,
                 "output": result.stdout,
@@ -35,6 +39,7 @@ def run_process(command, timeout=5):
         }
 
     except subprocess.TimeoutExpired:
+
         return {
             "success": False,
             "output": "",
@@ -42,6 +47,7 @@ def run_process(command, timeout=5):
         }
 
     except FileNotFoundError:
+
         return {
             "success": False,
             "output": "",
@@ -49,6 +55,7 @@ def run_process(command, timeout=5):
         }
 
     except Exception as error:
+
         return {
             "success": False,
             "output": "",
@@ -61,18 +68,18 @@ def run_process(command, timeout=5):
 # ==========================================
 
 def run_python_code(code: str):
-    """
-    Execute Python code.
-    """
+
     temp_file = None
 
     try:
+
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".py",
             delete=False,
             encoding="utf-8"
         ) as file:
+
             file.write(code)
             temp_file = file.name
 
@@ -84,9 +91,12 @@ def run_python_code(code: str):
         )
 
     finally:
+
         if temp_file and os.path.exists(temp_file):
+
             try:
                 os.remove(temp_file)
+
             except OSError:
                 pass
 
@@ -96,32 +106,45 @@ def run_python_code(code: str):
 # ==========================================
 
 def run_javascript_code(code: str):
-    """
-    Execute JavaScript using Node.js.
-    """
+
+    node_executable = shutil.which("node")
+
+    if not node_executable:
+
+        return {
+            "success": False,
+            "output": "",
+            "error": "Node.js is not installed or not available in PATH."
+        }
+
     temp_file = None
 
     try:
+
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".js",
             delete=False,
             encoding="utf-8"
         ) as file:
+
             file.write(code)
             temp_file = file.name
 
         return run_process(
             [
-                r"C:\Program Files\nodejs\node.exe",
+                node_executable,
                 temp_file
             ]
         )
 
     finally:
+
         if temp_file and os.path.exists(temp_file):
+
             try:
                 os.remove(temp_file)
+
             except OSError:
                 pass
 
@@ -131,34 +154,48 @@ def run_javascript_code(code: str):
 # ==========================================
 
 def run_typescript_code(code: str):
-    """
-    Execute TypeScript using tsx through npx.
-    """
+
+    npx_executable = shutil.which("npx")
+
+    if not npx_executable:
+
+        return {
+            "success": False,
+            "output": "",
+            "error": "npx is not installed or not available in PATH."
+        }
+
     temp_file = None
 
     try:
+
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".ts",
             delete=False,
             encoding="utf-8"
         ) as file:
+
             file.write(code)
             temp_file = file.name
 
         return run_process(
             [
-                r"C:\Program Files\nodejs\npx.cmd",
+                npx_executable,
                 "--yes",
                 "tsx",
                 temp_file
-            ]
+            ],
+            timeout=30
         )
 
     finally:
+
         if temp_file and os.path.exists(temp_file):
+
             try:
                 os.remove(temp_file)
+
             except OSError:
                 pass
 
@@ -168,9 +205,43 @@ def run_typescript_code(code: str):
 # ==========================================
 
 def run_java_code(code: str):
-    """
-    Compile and execute Java code using JDK 21.
-    """
+
+    java_executable = shutil.which("java")
+    javac_executable = shutil.which("javac")
+
+    # ======================================
+    # WINDOWS JDK FALLBACK
+    # ======================================
+
+    if not java_executable or not javac_executable:
+
+        java_home = (
+            r"C:\Program Files\Eclipse Adoptium"
+            r"\jdk-21.0.12.101-hotspot"
+        )
+
+        java_executable = os.path.join(
+            java_home,
+            "bin",
+            "java.exe"
+        )
+
+        javac_executable = os.path.join(
+            java_home,
+            "bin",
+            "javac.exe"
+        )
+
+        if (
+            not os.path.exists(java_executable)
+            or not os.path.exists(javac_executable)
+        ):
+
+            return {
+                "success": False,
+                "output": "",
+                "error": "Java JDK is not installed or not available."
+            }
 
     temp_directory = tempfile.mkdtemp()
 
@@ -179,24 +250,14 @@ def run_java_code(code: str):
         "Main.java"
     )
 
-    java_executable = (
-        r"C:\Program Files\Eclipse Adoptium"
-        r"\jdk-21.0.12.101-hotspot"
-        r"\bin\java.exe"
-    )
-
-    javac_executable = (
-        r"C:\Program Files\Eclipse Adoptium"
-        r"\jdk-21.0.12.101-hotspot"
-        r"\bin\javac.exe"
-    )
-
     try:
+
         with open(
             java_file,
             "w",
             encoding="utf-8"
         ) as file:
+
             file.write(code)
 
         compile_result = run_process(
@@ -207,6 +268,7 @@ def run_java_code(code: str):
         )
 
         if not compile_result["success"]:
+
             return compile_result
 
         return run_process(
@@ -219,7 +281,9 @@ def run_java_code(code: str):
         )
 
     finally:
+
         try:
+
             for filename in os.listdir(temp_directory):
 
                 file_path = os.path.join(
@@ -228,11 +292,13 @@ def run_java_code(code: str):
                 )
 
                 if os.path.isfile(file_path):
+
                     os.remove(file_path)
 
             os.rmdir(temp_directory)
 
         except OSError:
+
             pass
 
 
@@ -241,10 +307,100 @@ def run_java_code(code: str):
 # ==========================================
 
 def run_cpp_code(code: str):
-    """
-    Compile and execute C++ code using
-    MSYS2 UCRT64 GCC.
-    """
+
+    # ======================================
+    # WINDOWS + MSYS2 UCRT64
+    # ======================================
+
+    if os.name == "nt":
+
+        bash_executable = r"C:\msys64\usr\bin\bash.exe"
+
+        if not os.path.exists(bash_executable):
+
+            return {
+                "success": False,
+                "output": "",
+                "error": "MSYS2 Bash was not found."
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            cpp_file = os.path.join(
+                temp_dir,
+                "main.cpp"
+            )
+
+            executable = os.path.join(
+                temp_dir,
+                "main.exe"
+            )
+
+            with open(
+                cpp_file,
+                "w",
+                encoding="utf-8"
+            ) as file:
+
+                file.write(code)
+
+            # Convert Windows paths to MSYS2 paths
+            temp_dir_msys = temp_dir.replace("\\", "/")
+
+            cpp_file_msys = cpp_file.replace("\\", "/")
+            executable_msys = executable.replace("\\", "/")
+
+            # Example:
+            # C:/Users/USER/AppData/Local/Temp/abc
+            # becomes:
+            # /c/Users/USER/AppData/Local/Temp/abc
+
+            if len(cpp_file_msys) >= 2 and cpp_file_msys[1] == ":":
+                cpp_file_msys = (
+                    "/"
+                    + cpp_file_msys[0].lower()
+                    + cpp_file_msys[2:]
+                )
+
+            if len(executable_msys) >= 2 and executable_msys[1] == ":":
+                executable_msys = (
+                    "/"
+                    + executable_msys[0].lower()
+                    + executable_msys[2:]
+                )
+
+            # ==================================
+            # COMPILE + RUN INSIDE UCRT64
+            # ==================================
+
+            command = (
+                "export PATH=/ucrt64/bin:/usr/bin:$PATH && "
+                f"g++ '{cpp_file_msys}' -o '{executable_msys}' && "
+                f"'{executable_msys}'"
+            )
+
+            return run_process(
+                [
+                    bash_executable,
+                    "-lc",
+                    command
+                ],
+                timeout=30
+            )
+
+    # ======================================
+    # LINUX / OTHER SYSTEMS
+    # ======================================
+
+    gpp_executable = shutil.which("g++")
+
+    if not gpp_executable:
+
+        return {
+            "success": False,
+            "output": "",
+            "error": "C++ compiler (g++) is not installed or not available in PATH."
+        }
 
     with tempfile.TemporaryDirectory() as temp_dir:
 
@@ -255,103 +411,63 @@ def run_cpp_code(code: str):
 
         executable = os.path.join(
             temp_dir,
-            "main.exe"
+            "main"
         )
 
-        # Write user's C++ code
         with open(
             cpp_file,
             "w",
             encoding="utf-8"
         ) as file:
+
             file.write(code)
-
-        # Convert Windows paths to MSYS2 paths
-        msys_cpp_file = cpp_file.replace("\\", "/")
-        msys_executable = executable.replace("\\", "/")
-
-        # Convert C:/... to /c/...
-        if msys_cpp_file.startswith("C:/"):
-            msys_cpp_file = "/c/" + msys_cpp_file[3:]
-
-        if msys_executable.startswith("C:/"):
-            msys_executable = "/c/" + msys_executable[3:]
-
-        # MSYS2 Bash
-        msys2_bash = r"C:\msys64\usr\bin\bash.exe"
-
-        # Compile using UCRT64 GCC
-        compile_command = (
-            f'export PATH="/ucrt64/bin:/usr/bin:$PATH" && '
-            f'g++ "{msys_cpp_file}" -o "{msys_executable}"'
-        )
 
         compile_result = run_process(
             [
-                msys2_bash,
-                "-lc",
-                compile_command
-            ]
+                gpp_executable,
+                cpp_file,
+                "-o",
+                executable
+            ],
+            timeout=30
         )
 
-        # Compilation failed
         if not compile_result["success"]:
-            return {
-                "success": False,
-                "output": "",
-                "error": (
-                    compile_result["error"]
-                    or compile_result["output"]
-                    or "C++ compilation failed."
-                )
-            }
 
-        # Run the compiled program THROUGH MSYS2 Bash
-        run_command = (
-            f'export PATH="/ucrt64/bin:/usr/bin:$PATH" && '
-            f'"{msys_executable}"'
-        )
+            return compile_result
 
-        run_result = run_process(
+        return run_process(
             [
-                msys2_bash,
-                "-lc",
-                run_command
-            ]
+                executable
+            ],
+            timeout=5
         )
-
-        return {
-            "success": run_result["success"],
-            "output": run_result["output"],
-            "error": run_result["error"]
-        }
-
-
 # ==========================================
 # MAIN LANGUAGE ROUTER
 # ==========================================
 
 def run_code(code: str, language: str):
-    """
-    Route the user's code to the correct
-    language executor.
-    """
 
     language = language.lower().strip()
 
     if language == "python":
+
         return run_python_code(code)
 
     if language == "javascript":
+
         return run_javascript_code(code)
 
     if language == "typescript":
+
         return run_typescript_code(code)
 
     if language == "java":
+
         return run_java_code(code)
 
     if language == "c++":
+
         return run_cpp_code(code)
 
     return {
