@@ -1,10 +1,37 @@
 import { useState } from 'react';
+import './index.css';
 
 function App() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [isDebugging, setIsDebugging] = useState(false);
   const [result, setResult] = useState(null);
+  const [showFix, setShowFix] = useState(false);
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const [history, setHistory] = useState(() => {
+    const savedHistory = localStorage.getItem('codedoctor-history');
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+
+  const [explanationLevel, setExplanationLevel] = useState(() => {
+    return (
+      localStorage.getItem('codedoctor-explanation-level') ||
+      'detailed'
+    );
+  });
+
+  const [debuggingMode, setDebuggingMode] = useState(() => {
+    return (
+      localStorage.getItem('codedoctor-debugging-mode') ||
+      'tutor'
+    );
+  });
 
   const debugCode = async () => {
     if (!code.trim()) {
@@ -13,59 +40,91 @@ function App() {
 
     setIsDebugging(true);
     setResult(null);
+    setShowFix(false);
 
     try {
-      // LOCAL FASTAPI BACKEND
       const response = await fetch(
-        'http://127.0.0.1:8000/analyze',
+        'https://codedoctor-gnbw.onrender.com/analyze',
         {
           method: 'POST',
-
           headers: {
             'Content-Type': 'application/json',
           },
-
           body: JSON.stringify({
             code: code,
             language: language,
+            explanationLevel: explanationLevel,
+
+            runtimeOutput:
+              runResult?.output || '',
+
+            runtimeError:
+              runResult?.error || '',
           }),
         }
       );
 
       const data = await response.json();
 
-      // Handle backend errors
       if (!response.ok) {
         throw new Error(
-          data.detail || 'Failed to analyze code.'
+          data.detail || 'Something went wrong.'
         );
       }
 
-      // New structured backend response
+      const newHistoryItem = {
+        id: Date.now(),
+        code: code,
+        language: language,
+        debuggingMode: debuggingMode,
+        problem: data.problem,
+        explanation: data.explanation,
+        fixedCode: data.fixed_code,
+        concept: data.concept,
+        learningTip: data.learning_tip,
+        hint: data.hint,
+        question: data.question,
+        createdAt: new Date().toLocaleString(),
+      };
+
+      const updatedHistory = [
+        newHistoryItem,
+        ...history,
+      ];
+
+      setHistory(updatedHistory);
+
+      localStorage.setItem(
+        'codedoctor-history',
+        JSON.stringify(updatedHistory)
+      );
+
       setResult({
         problem: data.problem,
         explanation: data.explanation,
         fixedCode: data.fixed_code,
         concept: data.concept,
         learningTip: data.learning_tip,
+        hint: data.hint,
+        question: data.question,
       });
 
     } catch (error) {
-      console.error('CodeDoctor Error:', error);
+      console.error('Debug error:', error);
 
       setResult({
-        problem: 'Something went wrong.',
-
+        problem: 'Unable to analyze your code.',
         explanation:
           error.message ||
-          'CodeDoctor could not connect to the AI backend.',
-
+          'Something went wrong while connecting to CodeDoctor.',
         fixedCode: '',
-
-        concept: 'Connection Error',
-
+        concept: 'Connection',
         learningTip:
-          'Check the backend and try again.',
+          'Make sure your CodeDoctor backend is running.',
+        hint:
+          'Check that your FastAPI backend is running on port 8000.',
+        question:
+          'Can you identify whether the problem is in your code or in the connection to the backend?',
       });
 
     } finally {
@@ -73,35 +132,139 @@ function App() {
     }
   };
 
+  const runCode = async () => {
+  if (!code.trim()) {
+    return;
+  }
+
+  setIsRunning(true);
+  setRunResult(null);
+  setResult(null);
+
+  try {
+    const response = await fetch(
+      'https://codedoctor-gnbw.onrender.com/run',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code,
+          language: language,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || 'Something went wrong.'
+      );
+    }
+
+    setRunResult(data);
+
+  } catch (error) {
+    console.error('Run error:', error);
+
+    setRunResult({
+      success: false,
+      output: '',
+      error:
+        error.message ||
+        'Something went wrong while running your code.',
+    });
+
+  } finally {
+    setIsRunning(false);
+  }
+};
+
+  const deleteHistoryItem = (id) => {
+    const updatedHistory = history.filter(
+      (item) => item.id !== id
+    );
+
+    setHistory(updatedHistory);
+
+    localStorage.setItem(
+      'codedoctor-history',
+      JSON.stringify(updatedHistory)
+    );
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+
+    localStorage.removeItem(
+      'codedoctor-history'
+    );
+  };
+
+  const changeExplanationLevel = (level) => {
+    setExplanationLevel(level);
+
+    localStorage.setItem(
+      'codedoctor-explanation-level',
+      level
+    );
+  };
+
+  const changeDebuggingMode = (mode) => {
+    setDebuggingMode(mode);
+
+    localStorage.setItem(
+      'codedoctor-debugging-mode',
+      mode
+    );
+
+    setShowFix(false);
+  };
+
+  const loadHistorySession = (item) => {
+    setCode(item.code);
+    setLanguage(item.language);
+
+    setResult({
+      problem: item.problem,
+      explanation: item.explanation,
+      fixedCode: item.fixedCode,
+      concept: item.concept,
+      learningTip: item.learningTip,
+      hint: item.hint,
+      question: item.question,
+    });
+
+    setRunResult(null);
+    setShowFix(false);
+    setShowHistory(false);
+  };
+
   return (
     <div className="app">
-
-      {/* ========================= */}
-      {/* NAVBAR */}
-      {/* ========================= */}
 
       <nav className="navbar">
 
         <div className="logo">
-
-          <span className="logo-icon">
-            🩺
-          </span>
-
-          <span>
-            CodeDoctor
-          </span>
-
+          <span className="logo-icon">🩺</span>
+          <span>CodeDoctor</span>
         </div>
-
 
         <div className="nav-right">
 
-          <button>
+          <button
+            className="nav-button"
+            onClick={() => setShowHistory(true)}
+          >
             History
           </button>
 
-          <button>
+          <button
+            className="nav-button"
+            onClick={() => setShowSettings(true)}
+          >
             Settings
           </button>
 
@@ -109,17 +272,7 @@ function App() {
 
       </nav>
 
-
-      {/* ========================= */}
-      {/* MAIN */}
-      {/* ========================= */}
-
       <main className="main-content">
-
-
-        {/* ========================= */}
-        {/* HERO */}
-        {/* ========================= */}
 
         <section className="hero">
 
@@ -127,14 +280,11 @@ function App() {
             AI DEVELOPER ASSISTANT
           </p>
 
-
           <h1>
             Don't just fix your code.
-            <span>
-              Understand it.
-            </span>
+            <br />
+            <span>Understand it.</span>
           </h1>
-
 
           <p className="subtitle">
             Paste your code, find the bug, and learn why it happened.
@@ -142,96 +292,90 @@ function App() {
 
         </section>
 
-
-        {/* ========================= */}
-        {/* WORKSPACE */}
-        {/* ========================= */}
-
         <section className="workspace">
-
-
-          {/* ========================= */}
-          {/* CODE PANEL */}
-          {/* ========================= */}
 
           <div className="panel">
 
             <div className="panel-header">
 
               <div>
-
                 <span className="panel-title">
                   Your Code
                 </span>
 
-
-                <select
-                  value={language}
-                  onChange={(event) =>
-                    setLanguage(event.target.value)
-                  }
-                  className="language-select"
-                >
-
-                  <option value="javascript">
-                    JavaScript
-                  </option>
-
-                  <option value="python">
-                    Python
-                  </option>
-
-                  <option value="typescript">
-                    TypeScript
-                  </option>
-
-                  <option value="java">
-                    Java
-                  </option>
-
-                  <option value="c++">
-                    C++
-                  </option>
-
-                </select>
-
+                <span className="panel-language">
+                  {language}
+                </span>
               </div>
+
+              <select
+                className="language-select"
+                value={language}
+                onChange={(event) => {
+                  setLanguage(event.target.value);
+                  setRunResult(null);
+                  setResult(null);
+                }}
+              >
+                <option value="javascript">
+                  JavaScript
+                </option>
+
+                <option value="python">
+                  Python
+                </option>
+
+                <option value="typescript">
+                  TypeScript
+                </option>
+
+                <option value="java">
+                  Java
+                </option>
+
+                <option value="c++">
+                  C++
+                </option>
+              </select>
 
             </div>
 
-
-            {/* CODE INPUT */}
-
             <textarea
               value={code}
-              onChange={(event) =>
-                setCode(event.target.value)
-              }
-              placeholder={`// Paste your ${language} code here...`}
+              onChange={(event) => {
+                setCode(event.target.value);
+                setRunResult(null);
+                setResult(null);
+              }}
+              placeholder="Paste your code here..."
               spellCheck="false"
             />
 
+            <div className="code-actions">
 
-            {/* DEBUG BUTTON */}
+              <button
+                className="run-button"
+                onClick={runCode}
+                disabled={isRunning || isDebugging}
+              >
+                {isRunning
+                  ? 'Running...'
+                  : '▶ Run Code'}
+              </button>
 
-            <button
-              className="debug-button"
-              onClick={debugCode}
-              disabled={isDebugging}
-            >
+              <button
+                className="debug-button"
+                onClick={debugCode}
+                disabled={isDebugging || isRunning}
+              >
+                {isDebugging
+                  ? 'Analyzing...'
+                  : 'Debug Code'}
+              </button>
 
-              {isDebugging
-                ? '⏳ Analyzing...'
-                : '🩺 Debug Code'}
-
-            </button>
+            </div>
 
           </div>
-
-
-          {/* ========================= */}
-          {/* AI PANEL */}
-          {/* ========================= */}
 
           <div className="panel">
 
@@ -243,67 +387,148 @@ function App() {
 
             </div>
 
-
-            {/* EMPTY */}
-
-            {!result && !isDebugging && (
+            {!result &&
+              !runResult &&
+              !isDebugging &&
+              !isRunning && (
 
               <div className="empty-state">
 
                 <div className="empty-icon">
-                  ✦
+                  🩺
                 </div>
 
-
                 <h2>
-                  Your code is waiting.
+                  Ready to diagnose.
                 </h2>
 
-
                 <p>
-                  Paste some code on the left and let CodeDoctor
-                  find what's wrong.
+                  Your code analysis will appear here.
+                  CodeDoctor will find the problem,
+                  explain it, and help you understand
+                  the fix.
                 </p>
 
               </div>
 
             )}
 
+            {isRunning && (
 
-            {/* LOADING */}
+              <div className="empty-state">
+
+                <div className="empty-icon">
+                  ▶
+                </div>
+
+                <h2>
+                  Running your code...
+                </h2>
+
+                <p>
+                  CodeDoctor is executing your {language}
+                  code and checking the result.
+                </p>
+
+              </div>
+
+            )}
+
+            {runResult && !isRunning && (
+
+              <div className="analysis">
+
+                <div className="analysis-section">
+
+                  <span className="analysis-label">
+                    {runResult.success
+                      ? '✅ OUTPUT'
+                      : '❌ RUNTIME ERROR'}
+                  </span>
+
+                  {runResult.success ? (
+
+                    <pre className="fixed-code">
+                      <code>
+                        {runResult.output || 'No output.'}
+                      </code>
+                    </pre>
+
+                  ) : (
+
+                    <pre className="fixed-code">
+                      <code>
+                        {runResult.error}
+                      </code>
+                    </pre>
+
+                  )}
+
+                </div>
+
+                {runResult.success && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🟢 EXECUTION STATUS
+                    </span>
+
+                    <p>
+                      Your code ran successfully.
+                    </p>
+
+                  </div>
+
+                )}
+
+                {!runResult.success && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🩺 NEXT STEP
+                    </span>
+
+                    <p>
+                      CodeDoctor found a runtime error.
+                      Click Debug Code to let the AI
+                      explain what caused it and how
+                      to fix it.
+                    </p>
+
+                  </div>
+
+                )}
+
+              </div>
+
+            )}
 
             {isDebugging && (
 
               <div className="empty-state">
 
                 <div className="empty-icon">
-                  ✦
+                  ⏳
                 </div>
-
 
                 <h2>
                   Analyzing your code...
                 </h2>
 
-
                 <p>
-                  CodeDoctor is looking for bugs and understanding
-                  what your code is trying to do.
+                  CodeDoctor is looking for the bug
+                  and figuring out why it happened.
                 </p>
 
               </div>
 
             )}
 
-
-            {/* RESULT */}
-
-            {result && (
+            {result && !isDebugging && !isRunning && (
 
               <div className="analysis">
-
-
-                {/* PROBLEM */}
 
                 <div className="analysis-section">
 
@@ -311,31 +536,55 @@ function App() {
                     🚨 WHAT'S WRONG
                   </span>
 
-
                   <h2>
                     {result.problem}
                   </h2>
 
                 </div>
 
+                {debuggingMode === 'tutor' && (
+                  <>
 
-                {/* WHY */}
+                    <div className="analysis-section tutor-question">
 
-                <div className="analysis-section">
+                      <span className="analysis-label">
+                        🧠 THINK ABOUT IT
+                      </span>
 
-                  <span className="analysis-label">
-                    💡 WHY
-                  </span>
+                      <p>
+                        {result.question}
+                      </p>
 
+                    </div>
 
-                  <p>
-                    {result.explanation}
-                  </p>
+                    <div className="analysis-section tutor-hint">
 
-                </div>
+                      <span className="analysis-label">
+                        💡 HINT
+                      </span>
 
+                      <p>
+                        {result.hint}
+                      </p>
 
-                {/* FIXED CODE */}
+                    </div>
+
+                    <div className="analysis-section your-turn">
+
+                      <span className="analysis-label">
+                        ✍️ YOUR TURN
+                      </span>
+
+                      <p>
+                        Before revealing the fix, look back
+                        at your code and try to identify what
+                        needs to change.
+                      </p>
+
+                    </div>
+
+                  </>
+                )}
 
                 <div className="analysis-section">
 
@@ -343,19 +592,70 @@ function App() {
                     🔧 FIXED CODE
                   </span>
 
+                  {debuggingMode === 'debug' ? (
 
-                  <pre className="fixed-code">
+                    <pre className="fixed-code">
+                      <code>
+                        {result.fixedCode}
+                      </code>
+                    </pre>
 
-                    <code>
-                      {result.fixedCode}
-                    </code>
+                  ) : (
 
-                  </pre>
+                    !showFix ? (
+
+                      <div className="reveal-fix-container">
+
+                        <p>
+                          Think you've found the problem?
+                          Reveal the solution when you're ready.
+                        </p>
+
+                        <button
+                          className="reveal-fix-button"
+                          onClick={() => setShowFix(true)}
+                        >
+                          🔓 Reveal Fix
+                        </button>
+
+                      </div>
+
+                    ) : (
+
+                      <div>
+
+                        <pre className="fixed-code">
+                          <code>
+                            {result.fixedCode}
+                          </code>
+                        </pre>
+
+                        <button
+                          className="hide-fix-button"
+                          onClick={() => setShowFix(false)}
+                        >
+                          Hide Fix
+                        </button>
+
+                      </div>
+
+                    )
+
+                  )}
 
                 </div>
 
+                <div className="analysis-section">
 
-                {/* CONCEPT */}
+                  <span className="analysis-label">
+                    📖 WHY
+                  </span>
+
+                  <p>
+                    {result.explanation}
+                  </p>
+
+                </div>
 
                 <div className="analysis-section">
 
@@ -363,15 +663,11 @@ function App() {
                     🧠 CONCEPT
                   </span>
 
-
                   <p>
                     {result.concept}
                   </p>
 
                 </div>
-
-
-                {/* LEARNING TIP */}
 
                 <div className="analysis-section">
 
@@ -379,13 +675,11 @@ function App() {
                     📚 LEARNING TIP
                   </span>
 
-
                   <p>
                     {result.learningTip}
                   </p>
 
                 </div>
-
 
               </div>
 
@@ -396,6 +690,312 @@ function App() {
         </section>
 
       </main>
+
+      {showHistory && (
+
+        <div
+          className="history-overlay"
+          onClick={() => setShowHistory(false)}
+        >
+
+          <div
+            className="history-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <div className="history-header">
+
+              <div>
+                <h2>
+                  Debug History
+                </h2>
+
+                <p>
+                  Review your previous CodeDoctor sessions.
+                </p>
+              </div>
+
+              <div className="history-header-actions">
+
+                {history.length > 0 && (
+
+                  <button
+                    className="clear-history-button"
+                    onClick={clearHistory}
+                  >
+                    Clear All
+                  </button>
+
+                )}
+
+                <button
+                  className="close-history-button"
+                  onClick={() => setShowHistory(false)}
+                >
+                  ✕
+                </button>
+
+              </div>
+
+            </div>
+
+            {history.length === 0 ? (
+
+              <div className="history-empty">
+
+                <div className="history-empty-icon">
+                  🕘
+                </div>
+
+                <h3>
+                  No debugging history yet.
+                </h3>
+
+                <p>
+                  Your analyzed code will appear here
+                  so you can come back to it later.
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="history-list">
+
+                {history.map((item) => (
+
+                  <div
+                    className="history-card"
+                    key={item.id}
+                  >
+
+                    <div className="history-card-top">
+
+                      <span className="history-language">
+                        {item.language}
+                      </span>
+
+                      <span className="history-date">
+                        {item.createdAt}
+                      </span>
+
+                    </div>
+
+                    <h3 className="history-problem">
+                      {item.problem}
+                    </h3>
+
+                    <p className="history-explanation">
+                      {item.explanation}
+                    </p>
+
+                    <div className="history-actions">
+
+                      <button
+                        className="load-session-button"
+                        onClick={() =>
+                          loadHistorySession(item)
+                        }
+                      >
+                        Load Session
+                      </button>
+
+                      <button
+                        className="delete-history-button"
+                        onClick={() =>
+                          deleteHistoryItem(item.id)
+                        }
+                      >
+                        Delete
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+      {showSettings && (
+
+        <div
+          className="settings-overlay"
+          onClick={() => setShowSettings(false)}
+        >
+
+          <div
+            className="settings-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <div className="settings-header">
+
+              <div>
+                <h2>
+                  Settings
+                </h2>
+
+                <p>
+                  Customize how CodeDoctor helps you learn.
+                </p>
+              </div>
+
+              <button
+                className="close-settings-button"
+                onClick={() => setShowSettings(false)}
+              >
+                ✕
+              </button>
+
+            </div>
+
+            <div className="settings-content">
+
+              <div className="setting-item">
+
+                <div className="setting-info">
+
+                  <h3>
+                    Explanation Level
+                  </h3>
+
+                  <p>
+                    Choose how detailed CodeDoctor's
+                    explanations should be.
+                  </p>
+
+                </div>
+
+                <select
+                  className="settings-select"
+                  value={explanationLevel}
+                  onChange={(event) =>
+                    changeExplanationLevel(
+                      event.target.value
+                    )
+                  }
+                >
+
+                  <option value="simple">
+                    Simple
+                  </option>
+
+                  <option value="detailed">
+                    Detailed
+                  </option>
+
+                  <option value="expert">
+                    Expert
+                  </option>
+
+                </select>
+
+              </div>
+
+              <div className="setting-item">
+
+                <div className="setting-info">
+
+                  <h3>
+                    Debugging Mode
+                  </h3>
+
+                  <p>
+                    Choose between learning with guidance
+                    or getting straight to the solution.
+                  </p>
+
+                </div>
+
+                <select
+                  className="settings-select"
+                  value={debuggingMode}
+                  onChange={(event) =>
+                    changeDebuggingMode(
+                      event.target.value
+                    )
+                  }
+                >
+
+                  <option value="tutor">
+                    Tutor Mode
+                  </option>
+
+                  <option value="debug">
+                    Debug Mode
+                  </option>
+
+                </select>
+
+              </div>
+
+              <div className="setting-item">
+
+                <div className="setting-info">
+
+                  <h3>
+                    Debug History
+                  </h3>
+
+                  <p>
+                    Delete all saved debugging sessions
+                    from this device.
+                  </p>
+
+                </div>
+
+                <button
+                  className="settings-danger-button"
+                  onClick={clearHistory}
+                  disabled={history.length === 0}
+                >
+                  Clear History
+                </button>
+
+              </div>
+
+              <div className="setting-item settings-about">
+
+                <div className="setting-info">
+
+                  <h3>
+                    About CodeDoctor
+                  </h3>
+
+                  <p>
+                    An AI-powered coding debugger and
+                    learning assistant designed to help
+                    developers understand their mistakes.
+                  </p>
+
+                </div>
+
+                <span className="settings-version">
+                  v2.0.0
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
 
     </div>
   );
