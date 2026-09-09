@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import json
 
 
 # ==========================================
@@ -73,10 +74,16 @@ app.add_middleware(
 # ==========================================
 
 class DebugRequest(BaseModel):
-
     code: str
-
     language: str = "javascript"
+
+
+class DebugResponse(BaseModel):
+    problem: str
+    explanation: str
+    fixed_code: str
+    concept: str
+    learning_tip: str
 
 
 # ==========================================
@@ -95,7 +102,7 @@ def home():
 # DEBUG CODE
 # ==========================================
 
-@app.post("/debug")
+@app.post("/analyze", response_model=DebugResponse)
 def debug_code(request: DebugRequest):
 
     # Check code
@@ -119,7 +126,6 @@ Analyze the following {request.language} code carefully.
 IMPORTANT RULES:
 
 1. Find ALL actual errors in the code, including:
-
    - syntax errors
    - spelling mistakes
    - undefined variables
@@ -130,64 +136,42 @@ IMPORTANT RULES:
    - runtime errors
    - incorrect API usage
 
-
 2. Do NOT invent errors that are not present in the code.
 
-
-3. Only claim something is an error if it is actually incorrect
+3. Only identify something as an error if it is actually incorrect
 for {request.language}.
 
+4. The fixed_code must be a complete, working correction of the
+user's code.
 
-4. The FIXED_CODE must be a complete, working correction
-of the user's code.
+5. Preserve the user's original intention whenever possible.
 
+6. If there are multiple errors, identify and fix ALL of them.
 
-5. Do not simply repeat the original code.
+7. Explain everything in beginner-friendly language.
 
+8. If the code is already correct, clearly say that there are no
+errors and return the original code as fixed_code.
 
-6. Carefully compare every:
+IMPORTANT:
+Return ONLY valid JSON.
 
-   - variable name
-   - function name
-   - operator
-   - punctuation mark
-   - quote
-   - bracket
-   - method call
+Do not use Markdown.
+Do not use code fences.
+Do not add any text before or after the JSON.
 
-between the original code and the corrected code.
+The JSON MUST have exactly these fields:
 
+{{
+  "problem": "What is wrong with the code.",
+  "explanation": "Why the problem happens.",
+  "fixed_code": "The complete corrected code.",
+  "concept": "The main programming concept involved.",
+  "learning_tip": "One useful learning tip."
+}}
 
-7. Preserve the user's original intention whenever possible.
+USER'S CODE:
 
-
-8. If the code contains multiple errors, fix ALL of them.
-
-
-9. Explain the errors in beginner-friendly language.
-
-
-10. Do not overwhelm the user with unnecessary technical terms.
-
-
-Return your answer in EXACTLY this format:
-
-PROBLEM:
-[List every actual problem found in the code.]
-
-EXPLANATION:
-[Explain clearly why each problem is wrong.]
-
-FIXED_CODE:
-[Provide the complete corrected code.]
-
-CONCEPT:
-[The main programming concept involved.]
-
-LEARNING_TIP:
-[One useful tip that will help the user avoid this type of mistake.]
-
-ORIGINAL CODE:
 {request.code}
 """
 
@@ -199,42 +183,39 @@ ORIGINAL CODE:
     try:
 
         response = client.chat.completions.create(
-
             model="gemini-3.5-flash-lite",
-
             messages=[
                 {
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            response_format={"type": "json_object"}
         )
 
+        raw_analysis = response.choices[0].message.content
 
-        # ==================================
-        # GET AI RESPONSE
-        # ==================================
+        try:
+            parsed_analysis = json.loads(raw_analysis)
 
-        analysis = response.choices[0].message.content
+            validated_analysis = DebugResponse(
+                **parsed_analysis
+            )
 
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            print("Invalid AI response:", error)
 
-        # ==================================
-        # RETURN RESPONSE
-        # ==================================
+            raise HTTPException(
+                status_code=500,
+                detail="CodeDoctor received an invalid response from the AI."
+            )
 
-        return {
-            "analysis": analysis
-        }
-
+        return validated_analysis
 
     except Exception as error:
-
-        print("Gemini API error:", error)
-
+        print("Error generating debug response:", error)
 
         raise HTTPException(
-
             status_code=500,
-
-            detail=f"AI backend error: {str(error)}"
-        )
+            detail="An error occurred while debugging the code."
+        ) from error

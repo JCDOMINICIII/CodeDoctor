@@ -15,118 +15,48 @@ function App() {
     setResult(null);
 
     try {
-      // LIVE FASTAPI BACKEND
       const response = await fetch(
-        'https://codedoctor-gnbw.onrender.com/debug',
+        'https://codedoctor-gnbw.onrender.com/analyze',
         {
           method: 'POST',
-
           headers: {
             'Content-Type': 'application/json',
           },
-
           body: JSON.stringify({
-            code: code,
-            language: language,
+            code,
+            language,
           }),
         }
       );
 
-      // Get backend response
       const data = await response.json();
 
-      // Handle backend errors
       if (!response.ok) {
         throw new Error(
           data.detail || 'Failed to analyze code.'
         );
       }
 
-      const analysis = data.analysis;
-
-      // ==============================
-      // PROBLEM
-      // ==============================
-
-      const problem =
-        analysis
-          .split('EXPLANATION:')[0]
-          .replace('PROBLEM:', '')
-          .trim();
-
-
-      // ==============================
-      // EXPLANATION
-      // ==============================
-
-      const explanation =
-        analysis
-          .split('EXPLANATION:')[1]
-          ?.split('FIXED_CODE:')[0]
-          .trim() || '';
-
-
-      // ==============================
-      // FIXED CODE
-      // ==============================
-
-      const fixedCode =
-        analysis
-          .split('FIXED_CODE:')[1]
-          ?.split('CONCEPT:')[0]
-          .replace(/```[a-zA-Z0-9+#.-]*\n?/g, '')
-          .replace(/```/g, '')
-          .trim() || '';
-
-
-      // ==============================
-      // CONCEPT
-      // ==============================
-
-      const concept =
-        analysis
-          .split('CONCEPT:')[1]
-          ?.split('LEARNING_TIP:')[0]
-          .trim() || '';
-
-
-      // ==============================
-      // LEARNING TIP
-      // ==============================
-
-      const learningTip =
-        analysis
-          .split('LEARNING_TIP:')[1]
-          ?.trim() || '';
-
-
-      // ==============================
-      // SAVE RESULT
-      // ==============================
-
+      // Backend now returns structured JSON.
+      // No more splitting AI text with .split().
       setResult({
-        problem,
-        explanation,
-        fixedCode,
-        concept,
-        learningTip,
+        problem: data.problem,
+        explanation: data.explanation,
+        fixedCode: data.fixed_code,
+        concept: data.concept,
+        learningTip: data.learning_tip,
       });
 
     } catch (error) {
-
       console.error('CodeDoctor Error:', error);
 
       setResult({
         problem: 'Something went wrong.',
-
         explanation:
           error.message ||
           'CodeDoctor could not connect to the AI backend.',
-
         fixedCode: '',
-
         concept: 'Connection Error',
-
         learningTip:
           'Check the backend and try again.',
       });
@@ -136,99 +66,48 @@ function App() {
     }
   };
 
-
   return (
     <div className="app">
 
-      {/* ========================= */}
-      {/* NAVBAR */}
-      {/* ========================= */}
-
       <nav className="navbar">
-
         <div className="logo">
-
-          <span className="logo-icon">
-            🐛
-          </span>
-
-          <span>
-            CodeDoctor
-          </span>
-
+          <span className="logo-icon">🐛</span>
+          <span>CodeDoctor</span>
         </div>
-
 
         <div className="nav-right">
-
-          <button>
-            History
-          </button>
-
-          <button>
-            Settings
-          </button>
-
+          <button>History</button>
+          <button>Settings</button>
         </div>
-
       </nav>
-
-
-      {/* ========================= */}
-      {/* MAIN */}
-      {/* ========================= */}
 
       <main className="main-content">
 
-
-        {/* ========================= */}
-        {/* HERO */}
-        {/* ========================= */}
-
         <section className="hero">
-
           <p className="eyebrow">
             AI DEVELOPER ASSISTANT
           </p>
 
-
           <h1>
             Don't just fix your code.
-            <span>
-              Understand it.
-            </span>
+            <span> Understand it.</span>
           </h1>
-
 
           <p className="subtitle">
             Paste your code, find the bug, and learn why it happened.
           </p>
-
         </section>
-
-
-
-        {/* ========================= */}
-        {/* WORKSPACE */}
-        {/* ========================= */}
 
         <section className="workspace">
 
-
-          {/* ========================= */}
-          {/* CODE PANEL */}
-          {/* ========================= */}
-
+          {/* LEFT PANEL */}
           <div className="panel">
 
             <div className="panel-header">
-
               <div>
-
                 <span className="panel-title">
                   Your Code
                 </span>
-
 
                 <select
                   value={language}
@@ -237,7 +116,6 @@ function App() {
                   }
                   className="language-select"
                 >
-
                   <option value="javascript">
                     JavaScript
                   </option>
@@ -257,16 +135,9 @@ function App() {
                   <option value="cpp">
                     C++
                   </option>
-
                 </select>
-
               </div>
-
             </div>
-
-
-
-            {/* CODE INPUT */}
 
             <textarea
               value={code}
@@ -277,46 +148,31 @@ function App() {
               spellCheck="false"
             />
 
-
-
-            {/* DEBUG BUTTON */}
-
             <button
               className="debug-button"
               onClick={debugCode}
               disabled={isDebugging}
             >
-
               {isDebugging
                 ? '⏳ Analyzing...'
                 : '🔍 Debug Code'}
-
             </button>
 
           </div>
 
 
-
-          {/* ========================= */}
-          {/* AI PANEL */}
-          {/* ========================= */}
-
+          {/* RIGHT PANEL */}
           <div className="panel">
 
             <div className="panel-header">
-
               <span className="panel-title">
                 AI Analysis
               </span>
-
             </div>
 
 
-
-            {/* EMPTY */}
-
+            {/* EMPTY STATE */}
             {!result && !isDebugging && (
-
               <div className="empty-state">
 
                 <div className="empty-icon">
@@ -333,15 +189,11 @@ function App() {
                 </p>
 
               </div>
-
             )}
 
 
-
-            {/* LOADING */}
-
+            {/* LOADING STATE */}
             {isDebugging && (
-
               <div className="empty-state">
 
                 <div className="empty-icon">
@@ -358,20 +210,14 @@ function App() {
                 </p>
 
               </div>
-
             )}
 
 
-
             {/* RESULT */}
-
             {result && (
-
               <div className="analysis">
 
-
                 {/* PROBLEM */}
-
                 <div className="analysis-section">
 
                   <span className="analysis-label">
@@ -385,9 +231,7 @@ function App() {
                 </div>
 
 
-
-                {/* WHY */}
-
+                {/* EXPLANATION */}
                 <div className="analysis-section">
 
                   <span className="analysis-label">
@@ -401,9 +245,7 @@ function App() {
                 </div>
 
 
-
                 {/* FIXED CODE */}
-
                 <div className="analysis-section">
 
                   <span className="analysis-label">
@@ -411,19 +253,15 @@ function App() {
                   </span>
 
                   <pre className="fixed-code">
-
                     <code>
                       {result.fixedCode}
                     </code>
-
                   </pre>
 
                 </div>
 
 
-
                 {/* CONCEPT */}
-
                 <div className="analysis-section">
 
                   <span className="analysis-label">
@@ -437,9 +275,7 @@ function App() {
                 </div>
 
 
-
                 {/* LEARNING TIP */}
-
                 <div className="analysis-section">
 
                   <span className="analysis-label">
@@ -453,7 +289,6 @@ function App() {
                 </div>
 
               </div>
-
             )}
 
           </div>
