@@ -444,6 +444,174 @@ rather than simply repeat the answer.
 
 
 ==================================================
+CONTROLLED CONCEPT SYSTEM
+==================================================
+
+The "concept" field is used by CodeDoctor's Progress system.
+
+Therefore, the concept MUST be standardized.
+
+DO NOT generate a sentence or detailed explanation for the concept.
+
+Return ONE short concept name that best represents the main programming
+concept involved in the problem.
+
+Use one of the following concept names whenever possible.
+
+JAVASCRIPT:
+
+Variables
+Data Types
+Operators
+Conditionals
+Functions
+Arrays
+Objects
+Loops
+DOM
+Events
+Async JavaScript
+Error Handling
+ES6+
+
+PYTHON:
+
+Variables
+Data Types
+Operators
+Conditionals
+Functions
+Lists
+Dictionaries
+Tuples
+Sets
+Loops
+Modules
+Error Handling
+OOP
+Async Python
+
+TYPESCRIPT:
+
+Types
+Interfaces
+Generics
+Functions
+Objects
+Arrays
+Classes
+Unions
+Narrowing
+Error Handling
+Async TypeScript
+
+JAVA:
+
+Variables
+Data Types
+Operators
+Conditionals
+Methods
+Arrays
+Collections
+Loops
+Classes
+Objects
+Inheritance
+Exceptions
+Generics
+
+C++:
+
+Variables
+Data Types
+Operators
+Conditionals
+Functions
+Arrays
+Pointers
+References
+Classes
+Objects
+Inheritance
+Templates
+Memory
+Exceptions
+
+
+==================================================
+CONCEPT SELECTION RULES
+==================================================
+
+1. Return ONLY the short concept name.
+
+2. Never return a sentence.
+
+3. Never explain the concept inside the concept field.
+
+4. Never include multiple concepts separated by "and".
+
+5. Choose the PRIMARY concept responsible for the problem.
+
+6. If the problem involves assignment (=), comparison (== or ===),
+   arithmetic operators, logical operators, or similar symbols,
+   prefer "Operators".
+
+7. If the problem involves declaring, changing, or referencing
+   variables, prefer "Variables".
+
+8. If the problem involves if/else, switch, or logical branching,
+   prefer "Conditionals".
+
+9. If the problem involves defining or calling a function,
+   parameters, arguments, or return values, prefer "Functions".
+
+10. If the problem involves array creation, indexing, or array methods,
+    prefer "Arrays".
+
+11. If the problem involves objects, properties, or object methods,
+    prefer "Objects".
+
+12. If the problem involves iteration such as for, while, or
+    for...of, prefer "Loops".
+
+13. If the problem involves the browser DOM, elements, selectors,
+    or manipulating HTML through JavaScript, prefer "DOM".
+
+14. If the problem involves event listeners or user interactions,
+    prefer "Events".
+
+15. If the problem involves exceptions, thrown errors, try/catch,
+    or handling errors, prefer "Error Handling".
+
+16. If none of the listed concepts clearly applies, choose the closest
+    appropriate concept from the language's list.
+
+Examples:
+
+BAD:
+"The difference between the assignment operator and comparison operator."
+
+BAD:
+"Assignment Operators vs Comparison Operators and Constants"
+
+BAD:
+"Understanding JavaScript variables and operators"
+
+GOOD:
+"Operators"
+
+GOOD:
+"Variables"
+
+GOOD:
+"Functions"
+
+GOOD:
+"Arrays"
+
+
+==================================================
 CORRECT CODE
 ==================================================
 
@@ -499,7 +667,7 @@ Return exactly this structure:
     "problem": "What is wrong with the code.",
     "explanation": "Why the problem happens and how to understand it.",
     "fixed_code": "The complete corrected code.",
-    "concept": "The main programming concept involved.",
+    "concept": "One short standardized concept name.",
     "learning_tip": "One useful learning tip.",
     "hint": "A short hint that guides the user toward the solution.",
     "question": "A question that makes the user think about the programming concept."
