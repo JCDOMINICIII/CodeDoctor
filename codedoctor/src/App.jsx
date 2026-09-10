@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import './index.css';
 
+const BACKEND_URL =
+  'https://codedoctor-backend-docker.onrender.com';
+
 function App() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
@@ -15,23 +18,34 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   const [history, setHistory] = useState(() => {
-    const savedHistory = localStorage.getItem('codedoctor-history');
-    return savedHistory ? JSON.parse(savedHistory) : [];
+    const savedHistory = localStorage.getItem(
+      'codedoctor-history'
+    );
+
+    return savedHistory
+      ? JSON.parse(savedHistory)
+      : [];
   });
 
   const [explanationLevel, setExplanationLevel] = useState(() => {
     return (
-      localStorage.getItem('codedoctor-explanation-level') ||
-      'detailed'
+      localStorage.getItem(
+        'codedoctor-explanation-level'
+      ) || 'detailed'
     );
   });
 
   const [debuggingMode, setDebuggingMode] = useState(() => {
     return (
-      localStorage.getItem('codedoctor-debugging-mode') ||
-      'tutor'
+      localStorage.getItem(
+        'codedoctor-debugging-mode'
+      ) || 'tutor'
     );
   });
+
+  // ==========================================
+  // DEBUG CODE
+  // ==========================================
 
   const debugCode = async () => {
     if (!code.trim()) {
@@ -44,7 +58,7 @@ function App() {
 
     try {
       const response = await fetch(
-        'https://codedoctor-gnbw.onrender.com/analyze',
+        `${BACKEND_URL}/analyze`,
         {
           method: 'POST',
           headers: {
@@ -120,9 +134,9 @@ function App() {
         fixedCode: '',
         concept: 'Connection',
         learningTip:
-          'Make sure your CodeDoctor backend is running.',
+          'Make sure the CodeDoctor backend is available.',
         hint:
-          'Check that your FastAPI backend is running on port 8000.',
+          'Check your internet connection and try again.',
         question:
           'Can you identify whether the problem is in your code or in the connection to the backend?',
       });
@@ -132,55 +146,63 @@ function App() {
     }
   };
 
+  // ==========================================
+  // RUN CODE
+  // ==========================================
+
   const runCode = async () => {
-  if (!code.trim()) {
-    return;
-  }
-
-  setIsRunning(true);
-  setRunResult(null);
-  setResult(null);
-
-  try {
-    const response = await fetch(
-      'https://codedoctor-gnbw.onrender.com/run',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: code,
-          language: language,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.detail || 'Something went wrong.'
-      );
+    if (!code.trim()) {
+      return;
     }
 
-    setRunResult(data);
+    setIsRunning(true);
+    setRunResult(null);
+    setResult(null);
 
-  } catch (error) {
-    console.error('Run error:', error);
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/run`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: code,
+            language: language,
+          }),
+        }
+      );
 
-    setRunResult({
-      success: false,
-      output: '',
-      error:
-        error.message ||
-        'Something went wrong while running your code.',
-    });
+      const data = await response.json();
 
-  } finally {
-    setIsRunning(false);
-  }
-};
+      if (!response.ok) {
+        throw new Error(
+          data.detail || 'Something went wrong.'
+        );
+      }
+
+      setRunResult(data);
+
+    } catch (error) {
+      console.error('Run error:', error);
+
+      setRunResult({
+        success: false,
+        output: '',
+        error:
+          error.message ||
+          'Something went wrong while running your code.',
+      });
+
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // ==========================================
+  // HISTORY
+  // ==========================================
 
   const deleteHistoryItem = (id) => {
     const updatedHistory = history.filter(
@@ -241,6 +263,10 @@ function App() {
     setShowFix(false);
     setShowHistory(false);
   };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="app">
@@ -317,6 +343,7 @@ function App() {
                   setResult(null);
                 }}
               >
+
                 <option value="javascript">
                   JavaScript
                 </option>
@@ -336,6 +363,7 @@ function App() {
                 <option value="c++">
                   C++
                 </option>
+
               </select>
 
             </div>
@@ -426,9 +454,8 @@ function App() {
                 </h2>
 
                 <p>
-                  CodeDoctor is executing your {language} 
-                  code and checking the result.
-                </p>
+  CodeDoctor is executing your {language} code and checking the result.
+</p>
 
               </div>
 
@@ -691,6 +718,10 @@ function App() {
 
       </main>
 
+      {/* ==========================================
+          HISTORY MODAL
+          ========================================== */}
+
       {showHistory && (
 
         <div
@@ -826,6 +857,10 @@ function App() {
         </div>
 
       )}
+
+      {/* ==========================================
+          SETTINGS MODAL
+          ========================================== */}
 
       {showSettings && (
 
