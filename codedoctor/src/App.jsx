@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import './index.css';
 
-const BACKEND_URL =
-  'https://codedoctor-backend-docker.onrender.com';
+const BACKEND_URL = import.meta.env.DEV
+  ? 'http://127.0.0.1:8000'
+  : 'https://codedoctor-backend-docker.onrender.com';
 
+  
 function App() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
@@ -16,6 +18,15 @@ function App() {
 
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // ==========================================
+  // LEARNING MODE
+  // ==========================================
+
+  const [learningAnswer, setLearningAnswer] = useState('');
+  const [answerFeedback, setAnswerFeedback] = useState(null);
+  const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
+  const [hasAttemptedAnswer, setHasAttemptedAnswer] = useState(false);
 
   const [history, setHistory] = useState(() => {
     const savedHistory = localStorage.getItem(
@@ -55,6 +66,11 @@ function App() {
     setIsDebugging(true);
     setResult(null);
     setShowFix(false);
+
+    setLearningAnswer('');
+    setAnswerFeedback(null);
+    setHasAttemptedAnswer(false);
+    setIsEvaluatingAnswer(false);
 
     try {
       const response = await fetch(
@@ -159,6 +175,11 @@ function App() {
     setRunResult(null);
     setResult(null);
 
+    setLearningAnswer('');
+    setAnswerFeedback(null);
+    setHasAttemptedAnswer(false);
+    setIsEvaluatingAnswer(false);
+
     try {
       const response = await fetch(
         `${BACKEND_URL}/run`,
@@ -197,6 +218,75 @@ function App() {
 
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  // ==========================================
+  // LEARNING MODE
+  // ==========================================
+
+  const checkLearningAnswer = async () => {
+    if (!learningAnswer.trim() || !result) {
+      return;
+    }
+
+    setHasAttemptedAnswer(true);
+    setIsEvaluatingAnswer(true);
+    setAnswerFeedback(null);
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/evaluate-answer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: code,
+            language: language,
+            problem: result.problem,
+            explanation: result.explanation,
+            learningAnswer: learningAnswer,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+          'Something went wrong while evaluating your answer.'
+        );
+      }
+
+      setAnswerFeedback({
+        result: data.result,
+        feedback: data.feedback,
+        hint: data.hint,
+        question: data.question,
+      });
+
+    } catch (error) {
+      console.error(
+        'Answer evaluation error:',
+        error
+      );
+
+      setAnswerFeedback({
+        result: 'ERROR',
+        feedback:
+          error.message ||
+          'CodeDoctor could not evaluate your answer right now.',
+        hint:
+          'Try checking your reasoning against the problem CodeDoctor identified.',
+        question:
+          'What part of the code do you think is responsible for the problem?',
+      });
+
+    } finally {
+      setIsEvaluatingAnswer(false);
     }
   };
 
@@ -243,6 +333,10 @@ function App() {
     );
 
     setShowFix(false);
+    setLearningAnswer('');
+    setAnswerFeedback(null);
+    setHasAttemptedAnswer(false);
+    setIsEvaluatingAnswer(false);
   };
 
   const loadHistorySession = (item) => {
@@ -261,6 +355,10 @@ function App() {
 
     setRunResult(null);
     setShowFix(false);
+    setLearningAnswer('');
+    setAnswerFeedback(null);
+    setHasAttemptedAnswer(false);
+    setIsEvaluatingAnswer(false);
     setShowHistory(false);
   };
 
@@ -341,6 +439,10 @@ function App() {
                   setLanguage(event.target.value);
                   setRunResult(null);
                   setResult(null);
+                  setLearningAnswer('');
+                  setAnswerFeedback(null);
+                  setHasAttemptedAnswer(false);
+                  setIsEvaluatingAnswer(false);
                 }}
               >
 
@@ -374,6 +476,10 @@ function App() {
                 setCode(event.target.value);
                 setRunResult(null);
                 setResult(null);
+                setLearningAnswer('');
+                setAnswerFeedback(null);
+                setHasAttemptedAnswer(false);
+                setIsEvaluatingAnswer(false);
               }}
               placeholder="Paste your code here..."
               spellCheck="false"
@@ -454,8 +560,8 @@ function App() {
                 </h2>
 
                 <p>
-  CodeDoctor is executing your {language} code and checking the result.
-</p>
+                  CodeDoctor is executing your {language} code and checking the result.
+                </p>
 
               </div>
 
@@ -603,10 +709,81 @@ function App() {
                       </span>
 
                       <p>
-                        Before revealing the fix, look back
-                        at your code and try to identify what
-                        needs to change.
+                        Before revealing the fix, explain what
+                        you think is causing the problem.
                       </p>
+
+                      <textarea
+                        className="learning-answer"
+                        value={learningAnswer}
+                        onChange={(event) => {
+                          setLearningAnswer(event.target.value);
+                          setAnswerFeedback(null);
+                          setHasAttemptedAnswer(false);
+                        }}
+                        placeholder="What do you think is causing the problem?"
+                        rows="4"
+                      />
+
+                      <button
+                        className="check-answer-button"
+                        onClick={checkLearningAnswer}
+                        disabled={
+                          !learningAnswer.trim() ||
+                          isEvaluatingAnswer
+                        }
+                      >
+                        {isEvaluatingAnswer
+                          ? '🧠 Evaluating...'
+                          : '✅ Check My Answer'}
+                      </button>
+
+                      {hasAttemptedAnswer &&
+                        answerFeedback && (
+
+                        <div className="answer-feedback">
+
+                          <span className="analysis-label">
+                            {answerFeedback.result === 'CORRECT'
+                              ? '✅ CORRECT'
+                              : answerFeedback.result === 'PARTIALLY_CORRECT'
+                                ? '🟡 PARTIALLY CORRECT'
+                                : answerFeedback.result === 'INCORRECT'
+                                  ? '❌ NOT QUITE'
+                                  : '🩺 CODEDOCTOR FEEDBACK'}
+                          </span>
+
+                          <p>
+                            {answerFeedback.feedback}
+                          </p>
+
+                          <div className="answer-feedback-hint">
+
+                            <span className="analysis-label">
+                              💡 NEXT HINT
+                            </span>
+
+                            <p>
+                              {answerFeedback.hint}
+                            </p>
+
+                          </div>
+
+                          <div className="answer-feedback-question">
+
+                            <span className="analysis-label">
+                              🤔 THINK ABOUT THIS
+                            </span>
+
+                            <p>
+                              {answerFeedback.question}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      )}
 
                     </div>
 

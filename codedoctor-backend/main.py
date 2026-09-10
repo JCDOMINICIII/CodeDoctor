@@ -94,6 +94,18 @@ class DebugResponse(BaseModel):
 
 
 # ==========================================
+# LEARNING MODE
+# ==========================================
+
+class EvaluateAnswerRequest(BaseModel):
+    code: str
+    language: str
+    problem: str
+    explanation: str
+    learningAnswer: str
+
+
+# ==========================================
 # HOME
 # ==========================================
 
@@ -609,4 +621,281 @@ USER'S ORIGINAL CODE
         raise HTTPException(
             status_code=500,
             detail="An error occurred while debugging the code."
+        ) from error
+
+
+# ==========================================
+# LEARNING MODE — EVALUATE STUDENT ANSWER
+# ==========================================
+
+@app.post("/evaluate-answer")
+def evaluate_answer(request: EvaluateAnswerRequest):
+
+    if not request.learningAnswer.strip():
+
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide your answer before checking it."
+        )
+
+
+    # ==========================================
+    # SUPPORTED LANGUAGES
+    # ==========================================
+
+    supported_languages = {
+        "javascript",
+        "python",
+        "typescript",
+        "java",
+        "c++"
+    }
+
+    language = request.language.lower().strip()
+
+    if language not in supported_languages:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: {request.language}"
+        )
+
+
+    # ==========================================
+    # AI PROMPT
+    # ==========================================
+
+    prompt = f"""
+You are CodeDoctor, an AI coding tutor for beginner and junior programmers.
+
+A student is debugging code and has been asked to explain what they think
+is wrong.
+
+Your job is NOT to immediately give them the corrected code.
+
+Instead, evaluate their reasoning and teach them.
+
+
+==================================================
+PROGRAMMING LANGUAGE
+==================================================
+
+{language}
+
+
+==================================================
+USER'S CODE
+==================================================
+
+{request.code}
+
+
+==================================================
+IDENTIFIED PROBLEM
+==================================================
+
+{request.problem}
+
+
+==================================================
+EXPLANATION
+==================================================
+
+{request.explanation}
+
+
+==================================================
+STUDENT'S ANSWER
+==================================================
+
+{request.learningAnswer}
+
+
+==================================================
+YOUR TASK
+==================================================
+
+Evaluate the student's answer.
+
+Determine whether their reasoning is:
+
+- CORRECT
+- PARTIALLY_CORRECT
+- INCORRECT
+
+
+==================================================
+FEEDBACK RULES
+==================================================
+
+1. Be encouraging but honest.
+
+2. Explain what the student understood correctly.
+
+3. If they are wrong, explain the misunderstanding.
+
+4. Give them a useful hint that helps them discover the answer themselves.
+
+5. DO NOT reveal the corrected code.
+
+6. DO NOT simply repeat the original explanation.
+
+7. Keep the response beginner-friendly.
+
+8. If the student is partially correct, clearly explain what they
+   got right and what they missed.
+
+9. Ask a short follow-up question that makes them think.
+
+10. Never invent information that is not supported by the user's code,
+    identified problem, or explanation.
+
+11. Do not tell the student to reveal the fixed code.
+
+12. The goal is to help the student learn, not simply tell them the answer.
+
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+Return ONLY valid JSON.
+
+Do not use Markdown.
+
+Do not use code fences.
+
+Do not add anything before or after the JSON.
+
+Return exactly this structure:
+
+{{
+    "result": "CORRECT",
+    "feedback": "Your feedback here.",
+    "hint": "A useful hint here.",
+    "question": "A question that makes the student think."
+}}
+
+The "result" field MUST be exactly one of:
+
+CORRECT
+PARTIALLY_CORRECT
+INCORRECT
+"""
+
+
+    # ==========================================
+    # CALL AI
+    # ==========================================
+
+    try:
+
+        response = client.chat.completions.create(
+            model="gemini-3.5-flash-lite",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={
+                "type": "json_object"
+            }
+        )
+
+
+        raw_response = response.choices[0].message.content
+
+
+        if not raw_response:
+
+            raise HTTPException(
+                status_code=500,
+                detail="CodeDoctor received an empty response from the AI."
+            )
+
+
+        # ==========================================
+        # PARSE JSON
+        # ==========================================
+
+        try:
+
+            parsed_response = json.loads(raw_response)
+
+        except json.JSONDecodeError as error:
+
+            print(
+                "Invalid AI answer evaluation JSON:",
+                error
+            )
+
+            print(
+                "Raw response:",
+                raw_response
+            )
+
+            raise HTTPException(
+                status_code=500,
+                detail="CodeDoctor received an invalid answer evaluation."
+            )
+
+
+        # ==========================================
+        # VALIDATE RESULT
+        # ==========================================
+
+        allowed_results = {
+            "CORRECT",
+            "PARTIALLY_CORRECT",
+            "INCORRECT"
+        }
+
+        result = parsed_response.get("result")
+
+        if result not in allowed_results:
+
+            raise HTTPException(
+                status_code=500,
+                detail="CodeDoctor received an invalid answer evaluation result."
+            )
+
+
+        required_fields = {
+            "result",
+            "feedback",
+            "hint",
+            "question"
+        }
+
+        if not required_fields.issubset(parsed_response.keys()):
+
+            raise HTTPException(
+                status_code=500,
+                detail="CodeDoctor received an incomplete answer evaluation."
+            )
+
+
+        return parsed_response
+
+
+    # ==========================================
+    # ERROR HANDLING
+    # ==========================================
+
+    except HTTPException:
+
+        raise
+
+
+    except Exception as error:
+
+        print(
+            "Error evaluating student answer:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while evaluating your answer."
         ) from error
