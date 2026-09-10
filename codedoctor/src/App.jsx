@@ -5,7 +5,6 @@ const BACKEND_URL = import.meta.env.DEV
   ? 'http://127.0.0.1:8000'
   : 'https://codedoctor-backend-docker.onrender.com';
 
-  
 function App() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
@@ -28,6 +27,10 @@ function App() {
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [hasAttemptedAnswer, setHasAttemptedAnswer] = useState(false);
 
+  // ==========================================
+  // HISTORY
+  // ==========================================
+
   const [history, setHistory] = useState(() => {
     const savedHistory = localStorage.getItem(
       'codedoctor-history'
@@ -37,6 +40,13 @@ function App() {
       ? JSON.parse(savedHistory)
       : [];
   });
+
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFilter, setHistoryFilter] = useState('all');
+
+  // ==========================================
+  // SETTINGS
+  // ==========================================
 
   const [explanationLevel, setExplanationLevel] = useState(() => {
     return (
@@ -84,12 +94,8 @@ function App() {
             code: code,
             language: language,
             explanationLevel: explanationLevel,
-
-            runtimeOutput:
-              runResult?.output || '',
-
-            runtimeError:
-              runResult?.error || '',
+            runtimeOutput: runResult?.output || '',
+            runtimeError: runResult?.error || '',
           }),
         }
       );
@@ -315,6 +321,75 @@ function App() {
     );
   };
 
+  const loadHistorySession = (item) => {
+    setCode(item.code);
+    setLanguage(item.language);
+
+    setResult({
+      problem: item.problem,
+      explanation: item.explanation,
+      fixedCode: item.fixedCode,
+      concept: item.concept,
+      learningTip: item.learningTip,
+      hint: item.hint,
+      question: item.question,
+    });
+
+    setRunResult(null);
+    setShowFix(false);
+    setLearningAnswer('');
+    setAnswerFeedback(null);
+    setHasAttemptedAnswer(false);
+    setIsEvaluatingAnswer(false);
+    setShowHistory(false);
+
+    setHistorySearch('');
+    setHistoryFilter('all');
+  };
+
+  // ==========================================
+  // HISTORY SEARCH + FILTER
+  // ==========================================
+
+  const filteredHistory = history.filter((item) => {
+    const search = historySearch
+      .toLowerCase()
+      .trim();
+
+    const matchesSearch =
+      !search ||
+      item.problem
+        .toLowerCase()
+        .includes(search) ||
+      item.explanation
+        .toLowerCase()
+        .includes(search) ||
+      item.concept
+        .toLowerCase()
+        .includes(search) ||
+      item.code
+        .toLowerCase()
+        .includes(search);
+
+    const matchesLanguage =
+      historyFilter === 'all' ||
+      item.language === historyFilter;
+
+    return matchesSearch && matchesLanguage;
+  });
+
+  const historyLanguages = [
+    ...new Set(
+      history.map(
+        (item) => item.language
+      )
+    ),
+  ];
+
+  // ==========================================
+  // SETTINGS
+  // ==========================================
+
   const changeExplanationLevel = (level) => {
     setExplanationLevel(level);
 
@@ -339,29 +414,6 @@ function App() {
     setIsEvaluatingAnswer(false);
   };
 
-  const loadHistorySession = (item) => {
-    setCode(item.code);
-    setLanguage(item.language);
-
-    setResult({
-      problem: item.problem,
-      explanation: item.explanation,
-      fixedCode: item.fixedCode,
-      concept: item.concept,
-      learningTip: item.learningTip,
-      hint: item.hint,
-      question: item.question,
-    });
-
-    setRunResult(null);
-    setShowFix(false);
-    setLearningAnswer('');
-    setAnswerFeedback(null);
-    setHasAttemptedAnswer(false);
-    setIsEvaluatingAnswer(false);
-    setShowHistory(false);
-  };
-
   // ==========================================
   // UI
   // ==========================================
@@ -372,8 +424,13 @@ function App() {
       <nav className="navbar">
 
         <div className="logo">
-          <span className="logo-icon">🩺</span>
-          <span>CodeDoctor</span>
+          <span className="logo-icon">
+            🩺
+          </span>
+
+          <span>
+            CodeDoctor
+          </span>
         </div>
 
         <div className="nav-right">
@@ -407,7 +464,9 @@ function App() {
           <h1>
             Don't just fix your code.
             <br />
-            <span>Understand it.</span>
+            <span>
+              Understand it.
+            </span>
           </h1>
 
           <p className="subtitle">
@@ -423,6 +482,7 @@ function App() {
             <div className="panel-header">
 
               <div>
+
                 <span className="panel-title">
                   Your Code
                 </span>
@@ -430,13 +490,17 @@ function App() {
                 <span className="panel-language">
                   {language}
                 </span>
+
               </div>
 
               <select
                 className="language-select"
                 value={language}
                 onChange={(event) => {
-                  setLanguage(event.target.value);
+                  setLanguage(
+                    event.target.value
+                  );
+
                   setRunResult(null);
                   setResult(null);
                   setLearningAnswer('');
@@ -473,7 +537,10 @@ function App() {
             <textarea
               value={code}
               onChange={(event) => {
-                setCode(event.target.value);
+                setCode(
+                  event.target.value
+                );
+
                 setRunResult(null);
                 setResult(null);
                 setLearningAnswer('');
@@ -490,7 +557,10 @@ function App() {
               <button
                 className="run-button"
                 onClick={runCode}
-                disabled={isRunning || isDebugging}
+                disabled={
+                  isRunning ||
+                  isDebugging
+                }
               >
                 {isRunning
                   ? 'Running...'
@@ -500,7 +570,10 @@ function App() {
               <button
                 className="debug-button"
                 onClick={debugCode}
-                disabled={isDebugging || isRunning}
+                disabled={
+                  isDebugging ||
+                  isRunning
+                }
               >
                 {isDebugging
                   ? 'Analyzing...'
@@ -560,14 +633,16 @@ function App() {
                 </h2>
 
                 <p>
-                  CodeDoctor is executing your {language} code and checking the result.
+                  CodeDoctor is executing your {language}
+                  code and checking the result.
                 </p>
 
               </div>
 
             )}
 
-            {runResult && !isRunning && (
+            {runResult &&
+              !isRunning && (
 
               <div className="analysis">
 
@@ -582,17 +657,22 @@ function App() {
                   {runResult.success ? (
 
                     <pre className="fixed-code">
+
                       <code>
-                        {runResult.output || 'No output.'}
+                        {runResult.output ||
+                          'No output.'}
                       </code>
+
                     </pre>
 
                   ) : (
 
                     <pre className="fixed-code">
+
                       <code>
                         {runResult.error}
                       </code>
+
                     </pre>
 
                   )}
@@ -659,7 +739,9 @@ function App() {
 
             )}
 
-            {result && !isDebugging && !isRunning && (
+            {result &&
+              !isDebugging &&
+              !isRunning && (
 
               <div className="analysis">
 
@@ -676,6 +758,7 @@ function App() {
                 </div>
 
                 {debuggingMode === 'tutor' && (
+
                   <>
 
                     <div className="analysis-section tutor-question">
@@ -717,7 +800,10 @@ function App() {
                         className="learning-answer"
                         value={learningAnswer}
                         onChange={(event) => {
-                          setLearningAnswer(event.target.value);
+                          setLearningAnswer(
+                            event.target.value
+                          );
+
                           setAnswerFeedback(null);
                           setHasAttemptedAnswer(false);
                         }}
@@ -744,13 +830,18 @@ function App() {
                         <div className="answer-feedback">
 
                           <span className="analysis-label">
-                            {answerFeedback.result === 'CORRECT'
+
+                            {answerFeedback.result ===
+                              'CORRECT'
                               ? '✅ CORRECT'
-                              : answerFeedback.result === 'PARTIALLY_CORRECT'
+                              : answerFeedback.result ===
+                                'PARTIALLY_CORRECT'
                                 ? '🟡 PARTIALLY CORRECT'
-                                : answerFeedback.result === 'INCORRECT'
+                                : answerFeedback.result ===
+                                  'INCORRECT'
                                   ? '❌ NOT QUITE'
                                   : '🩺 CODEDOCTOR FEEDBACK'}
+
                           </span>
 
                           <p>
@@ -788,6 +879,7 @@ function App() {
                     </div>
 
                   </>
+
                 )}
 
                 <div className="analysis-section">
@@ -799,9 +891,11 @@ function App() {
                   {debuggingMode === 'debug' ? (
 
                     <pre className="fixed-code">
+
                       <code>
                         {result.fixedCode}
                       </code>
+
                     </pre>
 
                   ) : (
@@ -817,7 +911,9 @@ function App() {
 
                         <button
                           className="reveal-fix-button"
-                          onClick={() => setShowFix(true)}
+                          onClick={() =>
+                            setShowFix(true)
+                          }
                         >
                           🔓 Reveal Fix
                         </button>
@@ -829,14 +925,18 @@ function App() {
                       <div>
 
                         <pre className="fixed-code">
+
                           <code>
                             {result.fixedCode}
                           </code>
+
                         </pre>
 
                         <button
                           className="hide-fix-button"
-                          onClick={() => setShowFix(false)}
+                          onClick={() =>
+                            setShowFix(false)
+                          }
                         >
                           Hide Fix
                         </button>
@@ -903,7 +1003,11 @@ function App() {
 
         <div
           className="history-overlay"
-          onClick={() => setShowHistory(false)}
+          onClick={() => {
+            setShowHistory(false);
+            setHistorySearch('');
+            setHistoryFilter('all');
+          }}
         >
 
           <div
@@ -916,13 +1020,15 @@ function App() {
             <div className="history-header">
 
               <div>
+
                 <h2>
                   Debug History
                 </h2>
 
                 <p>
-                  Review your previous CodeDoctor sessions.
+                  Review what you've debugged and learned.
                 </p>
+
               </div>
 
               <div className="history-header-actions">
@@ -940,7 +1046,11 @@ function App() {
 
                 <button
                   className="close-history-button"
-                  onClick={() => setShowHistory(false)}
+                  onClick={() => {
+                    setShowHistory(false);
+                    setHistorySearch('');
+                    setHistoryFilter('all');
+                  }}
                 >
                   ✕
                 </button>
@@ -948,6 +1058,107 @@ function App() {
               </div>
 
             </div>
+
+            {history.length > 0 && (
+
+              <>
+
+                <div className="history-stats">
+
+                  <div className="history-stat">
+
+                    <span className="history-stat-number">
+                      {history.length}
+                    </span>
+
+                    <span className="history-stat-label">
+                      Sessions
+                    </span>
+
+                  </div>
+
+                  <div className="history-stat">
+
+                    <span className="history-stat-number">
+                      {new Set(
+                        history.map(
+                          (item) => item.concept
+                        )
+                      ).size}
+                    </span>
+
+                    <span className="history-stat-label">
+                      Concepts
+                    </span>
+
+                  </div>
+
+                  <div className="history-stat">
+
+                    <span className="history-stat-number">
+                      {new Set(
+                        history.map(
+                          (item) => item.language
+                        )
+                      ).size}
+                    </span>
+
+                    <span className="history-stat-label">
+                      Languages
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="history-controls">
+
+                  <input
+                    type="text"
+                    className="history-search"
+                    value={historySearch}
+                    onChange={(event) =>
+                      setHistorySearch(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Search your debugging history..."
+                  />
+
+                  <select
+                    className="history-filter"
+                    value={historyFilter}
+                    onChange={(event) =>
+                      setHistoryFilter(
+                        event.target.value
+                      )
+                    }
+                  >
+
+                    <option value="all">
+                      All Languages
+                    </option>
+
+                    {historyLanguages.map(
+                      (itemLanguage) => (
+
+                        <option
+                          key={itemLanguage}
+                          value={itemLanguage}
+                        >
+                          {itemLanguage}
+                        </option>
+
+                      )
+                    )}
+
+                  </select>
+
+                </div>
+
+              </>
+
+            )}
 
             {history.length === 0 ? (
 
@@ -968,11 +1179,29 @@ function App() {
 
               </div>
 
+            ) : filteredHistory.length === 0 ? (
+
+              <div className="history-empty">
+
+                <div className="history-empty-icon">
+                  🔎
+                </div>
+
+                <h3>
+                  No matching sessions.
+                </h3>
+
+                <p>
+                  Try a different search or language filter.
+                </p>
+
+              </div>
+
             ) : (
 
               <div className="history-list">
 
-                {history.map((item) => (
+                {filteredHistory.map((item) => (
 
                   <div
                     className="history-card"
@@ -998,6 +1227,18 @@ function App() {
                     <p className="history-explanation">
                       {item.explanation}
                     </p>
+
+                    <div className="history-concept">
+
+                      <span className="analysis-label">
+                        🧠 CONCEPT
+                      </span>
+
+                      <span>
+                        {item.concept}
+                      </span>
+
+                    </div>
 
                     <div className="history-actions">
 
@@ -1043,7 +1284,9 @@ function App() {
 
         <div
           className="settings-overlay"
-          onClick={() => setShowSettings(false)}
+          onClick={() =>
+            setShowSettings(false)
+          }
         >
 
           <div
@@ -1056,6 +1299,7 @@ function App() {
             <div className="settings-header">
 
               <div>
+
                 <h2>
                   Settings
                 </h2>
@@ -1063,11 +1307,14 @@ function App() {
                 <p>
                   Customize how CodeDoctor helps you learn.
                 </p>
+
               </div>
 
               <button
                 className="close-settings-button"
-                onClick={() => setShowSettings(false)}
+                onClick={() =>
+                  setShowSettings(false)
+                }
               >
                 ✕
               </button>
@@ -1172,7 +1419,9 @@ function App() {
                 <button
                   className="settings-danger-button"
                   onClick={clearHistory}
-                  disabled={history.length === 0}
+                  disabled={
+                    history.length === 0
+                  }
                 >
                   Clear History
                 </button>
