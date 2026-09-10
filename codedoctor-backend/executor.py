@@ -16,7 +16,6 @@ def run_process(command, timeout=5):
     """
 
     try:
-
         result = subprocess.run(
             command,
             capture_output=True,
@@ -25,7 +24,6 @@ def run_process(command, timeout=5):
         )
 
         if result.returncode != 0:
-
             return {
                 "success": False,
                 "output": result.stdout,
@@ -39,7 +37,6 @@ def run_process(command, timeout=5):
         }
 
     except subprocess.TimeoutExpired:
-
         return {
             "success": False,
             "output": "",
@@ -47,7 +44,6 @@ def run_process(command, timeout=5):
         }
 
     except FileNotFoundError:
-
         return {
             "success": False,
             "output": "",
@@ -55,7 +51,6 @@ def run_process(command, timeout=5):
         }
 
     except Exception as error:
-
         return {
             "success": False,
             "output": "",
@@ -209,39 +204,17 @@ def run_java_code(code: str):
     java_executable = shutil.which("java")
     javac_executable = shutil.which("javac")
 
-    # ======================================
-    # WINDOWS JDK FALLBACK
-    # ======================================
+    # Diagnostic information for Render/Docker
+    print("JAVA:", java_executable)
+    print("JAVAC:", javac_executable)
 
     if not java_executable or not javac_executable:
 
-        java_home = (
-            r"C:\Program Files\Eclipse Adoptium"
-            r"\jdk-21.0.12.101-hotspot"
-        )
-
-        java_executable = os.path.join(
-            java_home,
-            "bin",
-            "java.exe"
-        )
-
-        javac_executable = os.path.join(
-            java_home,
-            "bin",
-            "javac.exe"
-        )
-
-        if (
-            not os.path.exists(java_executable)
-            or not os.path.exists(javac_executable)
-        ):
-
-            return {
-                "success": False,
-                "output": "",
-                "error": "Java JDK is not installed or not available."
-            }
+        return {
+            "success": False,
+            "output": "",
+            "error": "Java JDK is not installed or not available in PATH."
+        }
 
     temp_directory = tempfile.mkdtemp()
 
@@ -252,6 +225,7 @@ def run_java_code(code: str):
 
     try:
 
+        # Write Java source
         with open(
             java_file,
             "w",
@@ -260,24 +234,28 @@ def run_java_code(code: str):
 
             file.write(code)
 
+        # Compile Java
         compile_result = run_process(
             [
                 javac_executable,
                 java_file
-            ]
+            ],
+            timeout=30
         )
 
         if not compile_result["success"]:
 
             return compile_result
 
+        # Run Java
         return run_process(
             [
                 java_executable,
                 "-cp",
                 temp_directory,
                 "Main"
-            ]
+            ],
+            timeout=5
         )
 
     finally:
@@ -297,7 +275,7 @@ def run_java_code(code: str):
 
             os.rmdir(temp_directory)
 
-        except OSError:
+        except Exception:
 
             pass
 
@@ -336,6 +314,7 @@ def run_cpp_code(code: str):
                 "main.exe"
             )
 
+            # Write C++ code
             with open(
                 cpp_file,
                 "w",
@@ -345,37 +324,39 @@ def run_cpp_code(code: str):
                 file.write(code)
 
             # Convert Windows paths to MSYS2 paths
-            temp_dir_msys = temp_dir.replace("\\", "/")
 
             cpp_file_msys = cpp_file.replace("\\", "/")
             executable_msys = executable.replace("\\", "/")
 
-            # Example:
-            # C:/Users/USER/AppData/Local/Temp/abc
-            # becomes:
-            # /c/Users/USER/AppData/Local/Temp/abc
+            # Convert C:/ to /c/
+            if (
+                len(cpp_file_msys) >= 2
+                and cpp_file_msys[1] == ":"
+            ):
 
-            if len(cpp_file_msys) >= 2 and cpp_file_msys[1] == ":":
                 cpp_file_msys = (
                     "/"
                     + cpp_file_msys[0].lower()
                     + cpp_file_msys[2:]
                 )
 
-            if len(executable_msys) >= 2 and executable_msys[1] == ":":
+            if (
+                len(executable_msys) >= 2
+                and executable_msys[1] == ":"
+            ):
+
                 executable_msys = (
                     "/"
                     + executable_msys[0].lower()
                     + executable_msys[2:]
                 )
 
-            # ==================================
-            # COMPILE + RUN INSIDE UCRT64
-            # ==================================
+            # Compile and run inside MSYS2 UCRT64
 
             command = (
                 "export PATH=/ucrt64/bin:/usr/bin:$PATH && "
-                f"g++ '{cpp_file_msys}' -o '{executable_msys}' && "
+                f"g++ '{cpp_file_msys}' "
+                f"-o '{executable_msys}' && "
                 f"'{executable_msys}'"
             )
 
@@ -414,6 +395,7 @@ def run_cpp_code(code: str):
             "main"
         )
 
+        # Write C++ code
         with open(
             cpp_file,
             "w",
@@ -422,6 +404,7 @@ def run_cpp_code(code: str):
 
             file.write(code)
 
+        # Compile
         compile_result = run_process(
             [
                 gpp_executable,
@@ -436,12 +419,15 @@ def run_cpp_code(code: str):
 
             return compile_result
 
+        # Run
         return run_process(
             [
                 executable
             ],
             timeout=5
         )
+
+
 # ==========================================
 # MAIN LANGUAGE ROUTER
 # ==========================================
