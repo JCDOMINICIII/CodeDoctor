@@ -1,16 +1,20 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from openai import OpenAI
-from dotenv import load_dotenv
-from executor import run_code
 import os
 import json
+import re
+from typing import List, Any
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
+from pydantic import BaseModel, Field
+
+from executor import run_code
 
 
-# ==========================================
+# ============================================================
 # ENVIRONMENT
-# ==========================================
+# ============================================================
 
 load_dotenv()
 
@@ -19,31 +23,23 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY is not set.")
 
-
-# ==========================================
-# AI CLIENT
-# ==========================================
-
 client = OpenAI(
     api_key=GEMINI_API_KEY,
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
 )
 
+MODEL_NAME = "gemini-3.6-flash"
 
-# ==========================================
-# FASTAPI APP
-# ==========================================
+
+# ============================================================
+# FASTAPI
+# ============================================================
 
 app = FastAPI(
     title="CodeDoctor API",
-    description="AI-powered coding debugger and teacher",
-    version="2.0.0"
+    version="3.1.1",
+    description="AI coding debugger and programming tutor",
 )
-
-
-# ==========================================
-# CORS
-# ==========================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +49,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "https://codedoctor-uejj.onrender.com",
+        "https://codedoctor-gnbw.onrender.com",
+        "https://codedoctor-backend-docker.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -60,9 +58,9 @@ app.add_middleware(
 )
 
 
-# ==========================================
-# REQUEST / RESPONSE MODELS
-# ==========================================
+# ============================================================
+# MODELS
+# ============================================================
 
 class DebugRequest(BaseModel):
     code: str
@@ -83,987 +81,2108 @@ class RunResponse(BaseModel):
     error: str
 
 
+class AlternativeSolution(BaseModel):
+    title: str
+    description: str
+    tradeoff: str = ""
+    code: str = ""
+
+
+class QualitySuggestion(BaseModel):
+    area: str
+    suggestion: str
+
+
 class DebugResponse(BaseModel):
     problem: str
     explanation: str
     fixed_code: str
+
     concept: str
     learning_tip: str
     hint: str
     question: str
 
+    diagnosisType: str
+    severity: str
+    location: str
+    evidence: str
 
-# ==========================================
-# LEARNING MODE
-# ==========================================
+    debugSteps: List[str]
+
+    rootCause: str
+    fixSummary: str
+
+    alternatives: List[AlternativeSolution]
+    qualitySuggestions: List[QualitySuggestion]
+    beginnerMistakes: List[str]
+
+    expectedBehavior: str = ""
+    actualBehavior: str = ""
+    changeExplanation: str = ""
+    runtimeContext: str = ""
+
+    # ========================================================
+    # AI SERVICE STATUS
+    # ========================================================
+
+    analysisStatus: str = "complete"
+    analysisErrorType: str = ""
+    analysisErrorMessage: str = ""
+    retryAfterSeconds: int = 0
+
 
 class EvaluateAnswerRequest(BaseModel):
     code: str
     language: str
+
     problem: str
     explanation: str
+
     learningAnswer: str
 
+    diagnosisType: str = ""
+    rootCause: str = ""
 
-# ==========================================
-# HOME
-# ==========================================
-
-@app.get("/")
-def home():
-
-    return {
-        "message": "CodeDoctor API is running!",
-        "version": "2.0.0",
-        "status": "online"
-    }
+    debugSteps: List[str] = Field(default_factory=list)
 
 
-# ==========================================
-# RUN CODE
-# ==========================================
+# ============================================================
+# CONSTANTS
+# ============================================================
 
-@app.post("/run", response_model=RunResponse)
-def run_code_endpoint(request: RunRequest):
+ALLOWED_LANGUAGES = {
+    "javascript",
+    "python",
+    "typescript",
+    "java",
+    "c++",
+}
 
-    if not request.code.strip():
+ALLOWED_EXPLANATION_LEVELS = {
+    "simple",
+    "detailed",
+    "expert",
+}
 
-        raise HTTPException(
-            status_code=400,
-            detail="Please provide some code to run."
-        )
+ALLOWED_DIAGNOSES = {
+    "Correct",
+    "Syntax Error",
+    "Runtime Error",
+    "Type Error",
+    "Logic Error",
+    "Compilation Error",
+    "Wrong Output",
+    "Environment Error",
+}
 
-    language = request.language.lower().strip()
+ALLOWED_SEVERITIES = {
+    "Low",
+    "Medium",
+    "High",
+}
 
-    supported_languages = {
-        "python",
-        "javascript",
-        "typescript",
-        "java",
-        "c++"
-    }
 
-    if language not in supported_languages:
+CONCEPTS = {
+    "javascript": [
+        "Variables",
+        "Data Types",
+        "Operators",
+        "Conditionals",
+        "Functions",
+        "Objects",
+        "Arrays",
+        "Loops",
+        "DOM",
+        "Events",
+        "Async Programming",
+        "Error Handling",
+        "Modules",
+        "Other",
+    ],
+    "python": [
+        "Variables",
+        "Data Types",
+        "Operators",
+        "Conditionals",
+        "Functions",
+        "Lists",
+        "Dictionaries",
+        "Loops",
+        "Classes",
+        "Modules",
+        "Error Handling",
+        "Other",
+    ],
+    "typescript": [
+        "Variables",
+        "Data Types",
+        "Types",
+        "Interfaces",
+        "Operators",
+        "Conditionals",
+        "Functions",
+        "Objects",
+        "Arrays",
+        "Loops",
+        "Generics",
+        "Async Programming",
+        "Error Handling",
+        "Other",
+    ],
+    "java": [
+        "Variables",
+        "Data Types",
+        "Operators",
+        "Conditionals",
+        "Methods",
+        "Classes",
+        "Objects",
+        "Arrays",
+        "Loops",
+        "Inheritance",
+        "Exceptions",
+        "Collections",
+        "Other",
+    ],
+    "c++": [
+        "Variables",
+        "Data Types",
+        "Operators",
+        "Conditionals",
+        "Functions",
+        "Classes",
+        "Objects",
+        "Arrays",
+        "Loops",
+        "Pointers",
+        "References",
+        "STL",
+        "Error Handling",
+        "Other",
+    ],
+}
 
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported language: {request.language}"
-        )
 
-    result = run_code(
-        request.code,
-        language
+# ============================================================
+# CLEANING / NORMALIZATION
+# ============================================================
+
+def clean_code_block(value: str) -> str:
+    if not value:
+        return ""
+
+    value = str(value).strip()
+
+    value = re.sub(
+        r"^```[a-zA-Z0-9_+#-]*\s*",
+        "",
+        value,
     )
 
-    return result
+    value = re.sub(
+        r"\s*```$",
+        "",
+        value,
+    )
+
+    return value.strip()
 
 
-# ==========================================
-# ANALYZE / DEBUG CODE
-# ==========================================
+def extract_json(content: str) -> Any:
+    content = content.strip()
 
-@app.post("/analyze", response_model=DebugResponse)
-def analyze_code(request: DebugRequest):
+    if content.startswith("```"):
+        content = clean_code_block(content)
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+
+    start = content.find("{")
+    end = content.rfind("}")
+
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("Gemini returned invalid JSON.")
+
+    return json.loads(content[start:end + 1])
+
+
+def normalize_language(language: str) -> str:
+    value = (language or "javascript").strip().lower()
+
+    aliases = {
+        "js": "javascript",
+        "javascript": "javascript",
+        "py": "python",
+        "python": "python",
+        "ts": "typescript",
+        "typescript": "typescript",
+        "java": "java",
+        "cpp": "c++",
+        "c++": "c++",
+        "cxx": "c++",
+    }
+
+    return aliases.get(value, value)
+
+
+def normalize_explanation_level(level: str) -> str:
+    value = (level or "detailed").strip().lower()
+
+    if value not in ALLOWED_EXPLANATION_LEVELS:
+        return "detailed"
+
+    return value
+
+
+def normalize_diagnosis(value: str) -> str:
+    if not value:
+        return "Logic Error"
+
+    text = (
+        str(value)
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+    )
+
+    aliases = {
+        "correct": "Correct",
+        "no error": "Correct",
+        "no errors": "Correct",
+
+        "syntax": "Syntax Error",
+        "syntax error": "Syntax Error",
+        "syntaxerror": "Syntax Error",
+
+        "runtime": "Runtime Error",
+        "runtime error": "Runtime Error",
+        "runtimeerror": "Runtime Error",
+
+        "type": "Type Error",
+        "type error": "Type Error",
+        "typeerror": "Type Error",
+
+        "logic": "Logic Error",
+        "logic error": "Logic Error",
+
+        "compile": "Compilation Error",
+        "compiler": "Compilation Error",
+        "compiler error": "Compilation Error",
+        "compilation": "Compilation Error",
+        "compilation error": "Compilation Error",
+
+        "wrong output": "Wrong Output",
+        "wrongoutput": "Wrong Output",
+        "output error": "Wrong Output",
+
+        "environment": "Environment Error",
+        "environment error": "Environment Error",
+        "environmenterror": "Environment Error",
+    }
+
+    return aliases.get(text, "Logic Error")
+
+
+def normalize_severity(value: str) -> str:
+    text = str(value or "").strip().lower()
+
+    if text == "low":
+        return "Low"
+
+    if text == "high":
+        return "High"
+
+    return "Medium"
+
+
+def normalize_concept(value: str, language: str) -> str:
+    concepts = CONCEPTS.get(
+        language,
+        CONCEPTS["javascript"],
+    )
+
+    if not value:
+        return "Other"
+
+    raw = str(value).strip().lower()
+
+    aliases = {
+        "variable": "Variables",
+        "variables": "Variables",
+
+        "datatype": "Data Types",
+        "data type": "Data Types",
+        "data types": "Data Types",
+
+        "type": "Types",
+        "types": "Types",
+
+        "operator": "Operators",
+        "operators": "Operators",
+
+        "condition": "Conditionals",
+        "conditional": "Conditionals",
+        "conditionals": "Conditionals",
+
+        "function": "Functions",
+        "functions": "Functions",
+
+        "method": "Methods",
+        "methods": "Methods",
+
+        "object": "Objects",
+        "objects": "Objects",
+
+        "array": "Arrays",
+        "arrays": "Arrays",
+
+        "list": "Lists",
+        "lists": "Lists",
+
+        "dictionary": "Dictionaries",
+        "dictionaries": "Dictionaries",
+
+        "loop": "Loops",
+        "loops": "Loops",
+
+        "dom": "DOM",
+
+        "event": "Events",
+        "events": "Events",
+
+        "async": "Async Programming",
+        "asynchronous": "Async Programming",
+
+        "error": "Error Handling",
+        "errors": "Error Handling",
+        "error handling": "Error Handling",
+
+        "class": "Classes",
+        "classes": "Classes",
+
+        "interface": "Interfaces",
+        "interfaces": "Interfaces",
+
+        "generic": "Generics",
+        "generics": "Generics",
+
+        "inheritance": "Inheritance",
+
+        "exception": "Exceptions",
+        "exceptions": "Exceptions",
+
+        "collection": "Collections",
+        "collections": "Collections",
+
+        "pointer": "Pointers",
+        "pointers": "Pointers",
+
+        "reference": "References",
+        "references": "References",
+
+        "stl": "STL",
+
+        "module": "Modules",
+        "modules": "Modules",
+    }
+
+    normalized = aliases.get(
+        raw,
+        str(value).strip(),
+    )
+
+    for concept in concepts:
+        if normalized.lower() == concept.lower():
+            return concept
+
+    return "Other"
+
+
+def normalize_string_list(
+    value: Any,
+    maximum: int = 5,
+) -> List[str]:
+
+    if not isinstance(value, list):
+        return []
+
+    output = []
+
+    for item in value[:maximum]:
+
+        if isinstance(item, str):
+            text = item.strip()
+
+        elif isinstance(item, dict):
+            text = str(
+                item.get("suggestion")
+                or item.get("description")
+                or item.get("text")
+                or ""
+            ).strip()
+
+        else:
+            text = ""
+
+        if text:
+            output.append(text)
+
+    return output
+
+
+def normalize_alternatives(
+    value: Any,
+) -> List[AlternativeSolution]:
+
+    if not isinstance(value, list):
+        return []
+
+    alternatives = []
+
+    for item in value[:3]:
+
+        if isinstance(item, str):
+
+            alternatives.append(
+                AlternativeSolution(
+                    title="Alternative",
+                    description=item.strip(),
+                )
+            )
+
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        title = str(
+            item.get("title")
+            or "Alternative"
+        ).strip()
+
+        description = str(
+            item.get("description")
+            or item.get("explanation")
+            or ""
+        ).strip()
+
+        tradeoff = str(
+            item.get("tradeoff")
+            or item.get("tradeoffs")
+            or ""
+        ).strip()
+
+        code = clean_code_block(
+            str(item.get("code") or "")
+        )
+
+        if description or code:
+
+            alternatives.append(
+                AlternativeSolution(
+                    title=title,
+                    description=description,
+                    tradeoff=tradeoff,
+                    code=code,
+                )
+            )
+
+    return alternatives
+
+
+def normalize_quality_suggestions(
+    value: Any,
+) -> List[QualitySuggestion]:
+
+    if not isinstance(value, list):
+        return []
+
+    suggestions = []
+
+    for item in value[:4]:
+
+        if isinstance(item, str):
+
+            text = item.strip()
+
+            if text:
+                suggestions.append(
+                    QualitySuggestion(
+                        area="General",
+                        suggestion=text,
+                    )
+                )
+
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        area = str(
+            item.get("area")
+            or "General"
+        ).strip()
+
+        suggestion = str(
+            item.get("suggestion")
+            or item.get("description")
+            or ""
+        ).strip()
+
+        if suggestion:
+
+            suggestions.append(
+                QualitySuggestion(
+                    area=area,
+                    suggestion=suggestion,
+                )
+            )
+
+    return suggestions
+
+
+# ============================================================
+# AI SERVICE ERROR HANDLING
+# ============================================================
+
+def extract_retry_after_seconds(exc: Exception) -> int:
+    """
+    Extract Gemini's retry delay from an API error.
+
+    Examples:
+    retry in 25.201174178s
+    retryDelay: 25s
+    retry in 39s
+    """
+
+    text = str(exc)
+
+    patterns = [
+        r"retry in\s+(\d+(?:\.\d+)?)s",
+        r"retryDelay['\"]?\s*:\s*(\d+)s",
+        r"retryDelay.*?(\d+)s",
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE,
+        )
+
+        if match:
+            try:
+                seconds = float(match.group(1))
+                return max(1, round(seconds))
+
+            except (TypeError, ValueError):
+                pass
+
+    return 0
+
+def classify_ai_service_error(
+    exc: Exception,
+) -> str:
+
+    status_code = getattr(
+        exc,
+        "status_code",
+        None,
+    )
+
+    text = str(exc).lower()
+
+    if (
+        status_code == 429
+        or "429" in text
+        or "resource_exhausted" in text
+        or "rate limit" in text
+        or "quota exceeded" in text
+        or "quota_exceeded" in text
+    ):
+        return "quota_exceeded"
+
+    if (
+        status_code == 401
+        or status_code == 403
+        or "invalid api key" in text
+        or "api key not valid" in text
+        or "authentication" in text
+        or "unauthorized" in text
+    ):
+        return "authentication_error"
+
+    if (
+        status_code in {
+            500,
+            502,
+            503,
+            504,
+        }
+        or "internal server error" in text
+        or "service unavailable" in text
+        or "temporarily unavailable" in text
+    ):
+        return "service_unavailable"
+
+    if (
+        "timeout" in text
+        or "timed out" in text
+    ):
+        return "timeout"
+
+    return "unknown"
+
+
+def friendly_ai_service_message(
+    error_type: str,
+) -> str:
+
+    messages = {
+        "quota_exceeded": (
+            "CodeDoctor successfully ran your code, "
+            "but the AI analysis service is temporarily "
+            "unavailable because its API quota has been "
+            "exceeded."
+        ),
+
+        "authentication_error": (
+            "CodeDoctor successfully ran your code, "
+            "but the AI analysis service could not "
+            "authenticate with its API."
+        ),
+
+        "service_unavailable": (
+            "CodeDoctor successfully ran your code, "
+            "but the AI analysis service is temporarily "
+            "unavailable."
+        ),
+
+        "timeout": (
+            "CodeDoctor successfully ran your code, "
+            "but the AI analysis service took too long "
+            "to respond."
+        ),
+
+        "unknown": (
+            "CodeDoctor successfully ran your code, "
+            "but the AI analysis service could not "
+            "complete the analysis."
+        ),
+    }
+
+    return messages.get(
+        error_type,
+        messages["unknown"],
+    )
+
+
+# ============================================================
+# EXECUTION / ERROR CLASSIFICATION
+# ============================================================
+
+def classify_execution_context(
+    runtime_error: str,
+    language: str,
+) -> str:
+
+    if not runtime_error:
+        return ""
+
+    error = runtime_error.lower()
+
+    environment_signals = [
+        "command not found",
+        "not recognized as an internal",
+        "no such file or directory",
+        "permission denied",
+        "permissionerror",
+        "executable file not found",
+        "runtime environment",
+        "environment is unavailable",
+        "environment unavailable",
+        "cannot find module",
+        "module not found",
+        "modulenotfounderror",
+        "npm err",
+        "node_modules",
+        "executable not found",
+        "process exited",
+        "process was terminated",
+        "timeout",
+        "timed out",
+        "sandbox",
+        "working directory",
+        "interpreter not found",
+        "compiler not found",
+        "java not found",
+        "javac not found",
+        "g++ not found",
+        "node not found",
+        "python not found",
+    ]
+
+    for signal in environment_signals:
+
+        if signal in error:
+            return "Environment Error"
+
+    return ""
+
+
+def detect_runtime_diagnosis(
+    runtime_error: str,
+    language: str,
+) -> str:
+
+    if not runtime_error:
+        return ""
+
+    error = runtime_error.lower()
+
+    environment = classify_execution_context(
+        runtime_error,
+        language,
+    )
+
+    if environment:
+        return environment
+
+    runtime_signals = [
+        "typeerror",
+        "referenceerror",
+        "rangeerror",
+        "urierror",
+        "evalerror",
+        "assignment to constant variable",
+        "is not defined",
+        "is not a function",
+        "cannot read properties",
+        "cannot set properties",
+        "undefined is not",
+        "uncaught",
+        "nameerror",
+        "valueerror",
+        "indexerror",
+        "keyerror",
+        "attributeerror",
+        "zerodivisionerror",
+        "filenotfounderror",
+        "importerror",
+        "runtimeerror",
+        "traceback",
+        "nullpointerexception",
+        "arrayindexoutofboundsexception",
+        "numberformatexception",
+        "arithmeticexception",
+        "classcastexception",
+        "illegalargumentexception",
+        "exception in thread",
+        "segmentation fault",
+        "core dumped",
+        "std::out_of_range",
+        "std::invalid_argument",
+    ]
+
+    for signal in runtime_signals:
+
+        if signal in error:
+            return "Runtime Error"
+
+    compiler_signals = [
+        "syntaxerror",
+        "syntax error",
+        "compilation failed",
+        "compilation error",
+        "compile error",
+        "cannot find symbol",
+        "unexpected token",
+        "unexpected end",
+        "expected ';'",
+        "expected ')'",
+        "expected '}'",
+        "expected expression",
+        "parse error",
+        "parseerror",
+    ]
+
+    for signal in compiler_signals:
+
+        if signal in error:
+
+            if language in {
+                "java",
+                "c++",
+                "typescript",
+            }:
+                return "Compilation Error"
+
+            return "Syntax Error"
+
+    if "error:" in error:
+
+        if language in {
+            "java",
+            "c++",
+            "typescript",
+        }:
+            return "Compilation Error"
+
+        return "Syntax Error"
+
+    return "Runtime Error"
+
+
+# ============================================================
+# ROOT
+# ============================================================
+
+@app.get("/")
+def root():
+
+    return {
+        "name": "CodeDoctor API",
+        "status": "online",
+        "version": "3.1.1",
+    }
+
+
+# ============================================================
+# RUN CODE
+# ============================================================
+
+@app.post(
+    "/run",
+    response_model=RunResponse,
+)
+def run(request: RunRequest):
+
+    language = normalize_language(
+        request.language
+    )
+
+    if language not in ALLOWED_LANGUAGES:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: {request.language}",
+        )
 
     if not request.code.strip():
 
         raise HTTPException(
             status_code=400,
-            detail="Please provide some code to debug."
+            detail="Code cannot be empty.",
         )
-
-    # ==========================================
-    # SUPPORTED LANGUAGES
-    # ==========================================
-
-    supported_languages = {
-        "javascript",
-        "python",
-        "typescript",
-        "java",
-        "c++"
-    }
-
-    language = request.language.lower().strip()
-
-    if language not in supported_languages:
-
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported language: {request.language}"
-        )
-
-    # ==========================================
-    # EXPLANATION LEVEL
-    # ==========================================
-
-    explanation_level = request.explanationLevel.lower().strip()
-
-    supported_explanation_levels = {
-        "simple",
-        "detailed",
-        "expert"
-    }
-
-    if explanation_level not in supported_explanation_levels:
-
-        explanation_level = "detailed"
-
-
-    # ==========================================
-    # RUNTIME CONTEXT
-    # ==========================================
-
-    runtime_context = ""
-
-    if request.runtimeOutput.strip():
-
-        runtime_context += f"""
-RUNTIME OUTPUT:
-
-{request.runtimeOutput}
-"""
-
-    if request.runtimeError.strip():
-
-        runtime_context += f"""
-RUNTIME ERROR:
-
-{request.runtimeError}
-"""
-
-    if not runtime_context:
-
-        runtime_context = """
-No runtime information is available.
-
-Analyze the source code itself.
-"""
-
-
-    # ==========================================
-    # AI PROMPT
-    # ==========================================
-
-    prompt = f"""
-You are CodeDoctor, an expert AI coding teacher and debugging assistant.
-
-Analyze the user's {language} code carefully.
-
-The user has selected the explanation level: {explanation_level}
-
-
-==================================================
-EXPLANATION LEVEL RULES
-==================================================
-
-If the explanation level is SIMPLE:
-
-- Explain the problem as if teaching someone who is still learning
-  programming basics.
-- Use plain language.
-- Avoid unnecessary technical terminology.
-- Keep explanations easy to understand.
-
-If the explanation level is DETAILED:
-
-- Give a clear beginner-friendly explanation.
-- Introduce the relevant programming terminology.
-- Explain why the error happens.
-- Explain how the corrected code solves the problem.
-
-If the explanation level is EXPERT:
-
-- Give a technically precise explanation.
-- You may use advanced programming terminology.
-- Explain scope, runtime behavior, execution, type systems,
-  memory, language semantics, or other advanced concepts when
-  relevant.
-- Do not oversimplify technical details.
-
-The explanation level should affect:
-
-- explanation
-- concept
-- learning_tip
-
-
-==================================================
-RUNTIME INFORMATION
-==================================================
-
-{runtime_context}
-
-
-==================================================
-CRITICAL RUNTIME RULES
-==================================================
-
-Runtime information comes from actually executing the user's code.
-
-If a RUNTIME ERROR is provided:
-
-- The original user code MUST be treated as having an error.
-- NEVER return "No errors found."
-- NEVER claim that the original code runs successfully.
-- The runtime error is strong evidence of a real problem.
-- Diagnose the runtime error against the ORIGINAL USER'S CODE.
-- Do not silently correct the code before diagnosing it.
-- Explain the connection between the source code and the runtime error.
-- The "problem" field must describe the actual error.
-- The "fixed_code" field must contain the corrected complete code.
-- Use the runtime error to help identify the smallest logical correction.
-
-For example, if the user submits:
-
-name = "Jethro"
-print(nam)
-
-and the runtime error says:
-
-NameError: name 'nam' is not defined. Did you mean: 'name'?
-
-Then the diagnosis should identify that:
-
-- "name" was defined.
-- "nam" was used later.
-- "nam" does not exist.
-- The likely intended variable is the existing "name".
-- The smallest correction is:
-
-name = "Jethro"
-print(name)
-
-Do NOT invent a new variable.
-
-Do NOT change:
-
-name = "Jethro"
-
-into:
-
-nam = "Jethro"
-
-unless the user's code clearly indicates that this was intended.
-
-The runtime error must be respected even if the AI can imagine a corrected
-version of the code.
-
-
-==================================================
-SOURCE CODE ANALYSIS RULES
-==================================================
-
-Your job is to:
-
-1. Find the actual programming errors.
-2. Use runtime evidence when available.
-3. Explain why they happen.
-4. Understand the user's apparent intention.
-5. Make the smallest logical correction.
-6. Return the complete corrected code.
-7. Teach the programming concept involved.
-8. Create a useful tutor hint.
-9. Create a question that helps the user reason about the bug.
-
-IMPORTANT:
-
-- Do NOT invent errors.
-- Do NOT invent arbitrary values.
-- Do NOT randomly rewrite working code.
-- Preserve the user's original structure and intention whenever possible.
-- Make the smallest correction necessary.
-- Only apply rules appropriate to {language}.
-
-
-==================================================
-UNDEFINED VARIABLES
-==================================================
-
-When you find an undefined variable, inspect the rest of the code.
-
-If there is an existing variable that clearly appears to be what
-the user intended to reference, use that existing variable.
-
-Example:
-
-const x = 10;
-console.log(y);
-
-The problem is that y was never defined.
-
-If x is clearly the variable the user intended to use, the obvious
-correction is:
-
-const x = 10;
-console.log(x);
-
-DO NOT change it to:
-
-const x = 10;
-const y = 20;
-console.log(y);
-
-That would invent information that the user never provided.
-
-Another example:
-
-let username = "Jethro";
-console.log(user);
-
-The obvious correction is:
-
-let username = "Jethro";
-console.log(username);
-
-However, if there are multiple possible variables and the intended
-correction cannot reasonably be determined, do not invent a value.
-
-Explain the ambiguity instead.
-
-
-==================================================
-TUTOR MODE
-==================================================
-
-Create a short "hint" that guides the user toward understanding
-the problem without simply giving away the answer.
-
-The hint should:
-
-- Be useful to a beginner.
-- Point the user toward the relevant part of the code.
-- Encourage the user to think before looking at the fixed code.
-- Never introduce information that does not exist in the user's code.
-
-Create a "question" that makes the user think about the programming
-concept involved.
-
-The question should encourage the user to reason about the problem
-rather than simply repeat the answer.
-
-
-==================================================
-CONTROLLED CONCEPT SYSTEM
-==================================================
-
-The "concept" field is used by CodeDoctor's Progress system.
-
-Therefore, the concept MUST be standardized.
-
-DO NOT generate a sentence or detailed explanation for the concept.
-
-Return ONE short concept name that best represents the main programming
-concept involved in the problem.
-
-Use one of the following concept names whenever possible.
-
-JAVASCRIPT:
-
-Variables
-Data Types
-Operators
-Conditionals
-Functions
-Arrays
-Objects
-Loops
-DOM
-Events
-Async JavaScript
-Error Handling
-ES6+
-
-PYTHON:
-
-Variables
-Data Types
-Operators
-Conditionals
-Functions
-Lists
-Dictionaries
-Tuples
-Sets
-Loops
-Modules
-Error Handling
-OOP
-Async Python
-
-TYPESCRIPT:
-
-Types
-Interfaces
-Generics
-Functions
-Objects
-Arrays
-Classes
-Unions
-Narrowing
-Error Handling
-Async TypeScript
-
-JAVA:
-
-Variables
-Data Types
-Operators
-Conditionals
-Methods
-Arrays
-Collections
-Loops
-Classes
-Objects
-Inheritance
-Exceptions
-Generics
-
-C++:
-
-Variables
-Data Types
-Operators
-Conditionals
-Functions
-Arrays
-Pointers
-References
-Classes
-Objects
-Inheritance
-Templates
-Memory
-Exceptions
-
-
-==================================================
-CONCEPT SELECTION RULES
-==================================================
-
-1. Return ONLY the short concept name.
-
-2. Never return a sentence.
-
-3. Never explain the concept inside the concept field.
-
-4. Never include multiple concepts separated by "and".
-
-5. Choose the PRIMARY concept responsible for the problem.
-
-6. If the problem involves assignment (=), comparison (== or ===),
-   arithmetic operators, logical operators, or similar symbols,
-   prefer "Operators".
-
-7. If the problem involves declaring, changing, or referencing
-   variables, prefer "Variables".
-
-8. If the problem involves if/else, switch, or logical branching,
-   prefer "Conditionals".
-
-9. If the problem involves defining or calling a function,
-   parameters, arguments, or return values, prefer "Functions".
-
-10. If the problem involves array creation, indexing, or array methods,
-    prefer "Arrays".
-
-11. If the problem involves objects, properties, or object methods,
-    prefer "Objects".
-
-12. If the problem involves iteration such as for, while, or
-    for...of, prefer "Loops".
-
-13. If the problem involves the browser DOM, elements, selectors,
-    or manipulating HTML through JavaScript, prefer "DOM".
-
-14. If the problem involves event listeners or user interactions,
-    prefer "Events".
-
-15. If the problem involves exceptions, thrown errors, try/catch,
-    or handling errors, prefer "Error Handling".
-
-16. If none of the listed concepts clearly applies, choose the closest
-    appropriate concept from the language's list.
-
-Examples:
-
-BAD:
-"The difference between the assignment operator and comparison operator."
-
-BAD:
-"Assignment Operators vs Comparison Operators and Constants"
-
-BAD:
-"Understanding JavaScript variables and operators"
-
-GOOD:
-"Operators"
-
-GOOD:
-"Variables"
-
-GOOD:
-"Functions"
-
-GOOD:
-"Arrays"
-
-
-==================================================
-CORRECT CODE
-==================================================
-
-Only return:
-
-"No errors found."
-
-when BOTH of the following are true:
-
-1. The source code itself contains no detectable error.
-2. There is NO runtime error provided.
-
-If runtime information shows that the code failed, the code MUST NOT
-be classified as correct.
-
-If the code is genuinely correct and there is no runtime error:
-
-problem should be:
-
-"No errors found."
-
-fixed_code should contain the original code unchanged.
-
-For correct code, the hint and question should still teach something
-useful about the code rather than pretending there is a bug.
-
-
-==================================================
-MULTIPLE ERRORS
-==================================================
-
-If there are multiple errors, identify and fix the errors that can
-reasonably be determined from the code and runtime evidence.
-
-Do not invent corrections for things that cannot reasonably be known.
-
-
-==================================================
-OUTPUT FORMAT
-==================================================
-
-Return ONLY valid JSON.
-
-Do not use Markdown.
-
-Do not use code fences.
-
-Do not add anything before or after the JSON.
-
-Return exactly this structure:
-
-{{
-    "problem": "What is wrong with the code.",
-    "explanation": "Why the problem happens and how to understand it.",
-    "fixed_code": "The complete corrected code.",
-    "concept": "One short standardized concept name.",
-    "learning_tip": "One useful learning tip.",
-    "hint": "A short hint that guides the user toward the solution.",
-    "question": "A question that makes the user think about the programming concept."
-}}
-
-
-==================================================
-USER'S ORIGINAL CODE
-==================================================
-
-{request.code}
-"""
-
-
-    # ==========================================
-    # CALL AI
-    # ==========================================
 
     try:
 
-        response = client.chat.completions.create(
-            model="gemini-3.5-flash-lite",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            response_format={
-                "type": "json_object"
-            }
+        result = run_code(
+            request.code,
+            language,
         )
 
+        if isinstance(result, dict):
 
-        raw_analysis = response.choices[0].message.content
-
-
-        if not raw_analysis:
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an empty response from the AI."
+            return RunResponse(
+                success=bool(
+                    result.get(
+                        "success",
+                        False,
+                    )
+                ),
+                output=str(
+                    result.get(
+                        "output",
+                        "",
+                    )
+                    or ""
+                ),
+                error=str(
+                    result.get(
+                        "error",
+                        "",
+                    )
+                    or ""
+                ),
             )
 
+        return RunResponse(
+            success=True,
+            output=str(result),
+            error="",
+        )
 
-        # ==========================================
-        # PARSE JSON
-        # ==========================================
-
-        try:
-
-            parsed_analysis = json.loads(raw_analysis)
-
-        except json.JSONDecodeError as error:
-
-            print(
-                "Invalid AI JSON response:",
-                error
-            )
-
-            print(
-                "Raw response:",
-                raw_analysis
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an invalid response from the AI."
-            )
-
-
-        # ==========================================
-        # VALIDATE RESPONSE
-        # ==========================================
-
-        try:
-
-            validated_analysis = DebugResponse(
-                **parsed_analysis
-            )
-
-        except (TypeError, ValueError) as error:
-
-            print(
-                "Invalid response structure:",
-                error
-            )
-
-            print(
-                "Parsed response:",
-                parsed_analysis
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an incomplete response from the AI."
-            )
-
-
-        return validated_analysis
-
-
-    # ==========================================
-    # ERROR HANDLING
-    # ==========================================
-
-    except HTTPException:
-
-        raise
-
-
-    except Exception as error:
+    except Exception as exc:
 
         print(
-            "Error generating debug response:",
-            error
+            "RUN ERROR:",
+            repr(exc),
         )
 
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while debugging the code."
-        ) from error
+            detail=f"Failed to run code: {str(exc)}",
+        )
 
 
-# ==========================================
-# LEARNING MODE — EVALUATE STUDENT ANSWER
-# ==========================================
+# ============================================================
+# AI ANALYSIS
+# ============================================================
+
+@app.post(
+    "/analyze",
+    response_model=DebugResponse,
+)
+def analyze(request: DebugRequest):
+
+    language = normalize_language(
+        request.language
+    )
+
+    explanation_level = normalize_explanation_level(
+        request.explanationLevel
+    )
+
+    if language not in ALLOWED_LANGUAGES:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: {request.language}",
+        )
+
+    if not request.code.strip():
+
+        raise HTTPException(
+            status_code=400,
+            detail="Code cannot be empty.",
+        )
+
+    runtime_output = (
+        request.runtimeOutput or ""
+    ).strip()
+
+    runtime_error = (
+        request.runtimeError or ""
+    ).strip()
+
+    detected_diagnosis = detect_runtime_diagnosis(
+        runtime_error,
+        language,
+    )
+
+    runtime_context = f"""
+ACTUAL EXECUTION OUTPUT:
+{runtime_output if runtime_output else "(none)"}
+
+ACTUAL EXECUTION ERROR:
+{runtime_error if runtime_error else "(none)"}
+""".strip()
+
+    prompt = f"""
+You are CodeDoctor 3.1, an expert programming
+debugger and patient programming teacher.
+
+You must diagnose the user's actual code.
+
+Your job is to:
+
+1. Identify the real problem.
+2. Explain exactly why it happened.
+3. Identify where it happened.
+4. Use actual execution evidence when supplied.
+5. Produce valid corrected code.
+6. Explain what changed.
+7. Give useful alternative approaches when appropriate.
+8. Separate correctness problems from code-quality advice.
+9. Identify relevant beginner mistakes.
+10. Teach the developer how to recognize the problem again.
+
+LANGUAGE:
+{language}
+
+EXPLANATION LEVEL:
+{explanation_level}
+
+USER CODE:
+{request.code}
+
+{runtime_context}
+
+============================================================
+AUTHORITATIVE EVIDENCE
+============================================================
+
+The actual runtime/compiler information above is
+stronger evidence than speculation.
+
+If an actual runtime error exists:
+- diagnose that actual error first.
+- do not replace it with a guessed logic problem.
+
+If the runtime failure is caused by the execution
+environment rather than the user's code:
+- diagnosisType MUST be "Environment Error".
+- explain that the environment is the problem.
+- do not invent a code fix.
+
+Environment problems include things such as:
+- missing interpreter
+- missing compiler
+- missing executable
+- unavailable package/module
+- permission problems
+- unavailable runtime
+- sandbox/execution infrastructure failures
+- configuration failures
+
+If code executes successfully but produces output that
+clearly conflicts with the intended behavior:
+- use "Wrong Output" when the intended behavior can be
+  reasonably inferred.
+- do not invent an expected output if the intention cannot
+  be inferred.
+
+Use "Logic Error" when the problem is in the program's
+reasoning/conditions/calculations but the output itself
+is not the main diagnostic evidence.
+
+Use "Type Error" when incompatible types are the actual
+cause.
+
+Use "Syntax Error" for invalid syntax.
+
+Use "Compilation Error" for compiler-level failures.
+
+Use "Runtime Error" for genuine execution failures caused
+by the program.
+
+If the code is correct:
+- diagnosisType MUST be "Correct".
+- fixed_code MUST equal the original code.
+- do not invent a bug.
+- do not invent a fix.
+
+============================================================
+FIX RULES
+============================================================
+
+fixed_code must be complete valid {language} code.
+
+Preserve the user's structure wherever possible.
+
+Fix only the actual problem.
+
+Do not perform unrelated refactoring.
+
+Do not invent:
+- variables
+- libraries
+- APIs
+- functions
+- files
+- requirements
+
+============================================================
+EXPLANATION
+============================================================
+
+Explain:
+
+What happened?
+Why did it happen?
+Where did it happen?
+Why does the language behave this way?
+How can the developer recognize this mistake later?
+
+Match the requested explanation level.
+
+============================================================
+DEBUGGING PROCESS
+============================================================
+
+Provide 3-6 useful debugging steps.
+
+These should teach a repeatable debugging process.
+
+Do not simply repeat the final fix.
+
+============================================================
+ALTERNATIVES
+============================================================
+
+Return 0-3 alternatives.
+
+Only return alternatives when genuinely useful.
+
+Each must contain:
+- title
+- description
+- tradeoff
+- code when appropriate
+
+============================================================
+CODE QUALITY
+============================================================
+
+Return 0-4 suggestions.
+
+Quality suggestions are NOT bugs.
+
+Only mention useful improvements involving:
+- readability
+- naming
+- structure
+- maintainability
+- duplication
+- clarity
+
+============================================================
+BEGINNER MISTAKES
+============================================================
+
+Return 0-3 mistakes that are directly relevant to this
+code and problem.
+
+Do not invent generic mistakes that are unrelated.
+
+============================================================
+LEARNING MODE
+============================================================
+
+The hint and question must help the developer reason
+toward the answer.
+
+They must NOT directly reveal the corrected code.
+
+============================================================
+CONTROLLED CONCEPT
+============================================================
+
+Choose exactly one concept from:
+
+JavaScript:
+{", ".join(CONCEPTS["javascript"])}
+
+Python:
+{", ".join(CONCEPTS["python"])}
+
+TypeScript:
+{", ".join(CONCEPTS["typescript"])}
+
+Java:
+{", ".join(CONCEPTS["java"])}
+
+C++:
+{", ".join(CONCEPTS["c++"])}
+
+============================================================
+JSON RESPONSE
+============================================================
+
+Return ONLY valid JSON:
+
+{{
+    "problem": "short description",
+
+    "explanation": "complete explanation",
+
+    "fixed_code": "complete corrected code",
+
+    "concept": "one controlled concept",
+
+    "learning_tip": "useful teaching tip",
+
+    "hint": "hint without revealing the fix",
+
+    "question": "thinking question without revealing the fix",
+
+    "diagnosisType": "Correct | Syntax Error | Runtime Error | Type Error | Logic Error | Compilation Error | Wrong Output | Environment Error",
+
+    "severity": "Low | Medium | High",
+
+    "location": "specific location",
+
+    "evidence": "specific evidence",
+
+    "debugSteps": [
+        "step 1",
+        "step 2",
+        "step 3"
+    ],
+
+    "rootCause": "underlying cause",
+
+    "fixSummary": "what changed",
+
+    "alternatives": [
+        {{
+            "title": "Alternative",
+            "description": "description",
+            "tradeoff": "trade-off",
+            "code": "optional code"
+        }}
+    ],
+
+    "qualitySuggestions": [
+        {{
+            "area": "Readability",
+            "suggestion": "useful suggestion"
+        }}
+    ],
+
+    "beginnerMistakes": [
+        "relevant mistake"
+    ],
+
+    "expectedBehavior": "what the program should do, only if inferable",
+
+    "actualBehavior": "what the program actually did",
+
+    "changeExplanation": "specific explanation of code changes",
+
+    "runtimeContext": "how runtime evidence affected the diagnosis"
+}}
+
+IMPORTANT:
+- JSON only.
+- No markdown.
+- No invented errors.
+- No invented runtime evidence.
+- Runtime/compiler evidence has priority.
+- Do not call style problems bugs.
+- Do not force alternatives.
+- Correct code must remain unchanged.
+"""
+
+    # ========================================================
+    # GEMINI CALL
+    # ========================================================
+
+    try:
+
+        if not GEMINI_API_KEY:
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "GEMINI_API_KEY is not configured "
+                    "on the backend."
+                ),
+            )
+
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are CodeDoctor. "
+                        "Return only valid JSON."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.1,
+        )
+
+        content = (
+            response.choices[0]
+            .message.content
+            or ""
+        ).strip()
+
+        data = extract_json(content)
+
+    # ========================================================
+    # GEMINI/API ERROR
+    # ========================================================
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+
+        print(
+            "ANALYZE ERROR:",
+            repr(exc),
+        )
+
+        error_type = classify_ai_service_error(
+            exc
+        )
+
+        retry_after = extract_retry_after_seconds(
+            exc
+        )
+
+        friendly_message = friendly_ai_service_message(
+            error_type
+        )
+
+        # ----------------------------------------------------
+        # IMPORTANT:
+        # Preserve the REAL PROGRAM diagnosis.
+        # Gemini failing is NOT an Environment Error.
+        # ----------------------------------------------------
+
+        if detected_diagnosis:
+
+            diagnosis = detected_diagnosis
+
+        else:
+
+            diagnosis = ""
+
+        if runtime_error:
+
+            problem = (
+                "Your program produced a runtime error, "
+                "but AI analysis is temporarily unavailable."
+            )
+
+            evidence = runtime_error
+
+            actual_behavior = runtime_error
+
+            root_cause = (
+                "The program produced the runtime error "
+                "shown above. AI root-cause analysis is "
+                "temporarily unavailable."
+            )
+
+            runtime_context_result = (
+                "The actual execution error was captured "
+                "successfully, but the AI analysis service "
+                "could not complete the deeper analysis."
+            )
+
+        elif runtime_output:
+
+            problem = (
+                "The program executed, but AI analysis "
+                "is temporarily unavailable."
+            )
+
+            evidence = runtime_output
+
+            actual_behavior = runtime_output
+
+            root_cause = (
+                "The program execution result was captured, "
+                "but AI analysis is temporarily unavailable."
+            )
+
+            runtime_context_result = (
+                "The actual execution output was captured "
+                "successfully, but the AI analysis service "
+                "could not complete the deeper analysis."
+            )
+
+        else:
+
+            problem = (
+                "AI analysis is temporarily unavailable."
+            )
+
+            evidence = (
+                "No runtime evidence was available."
+            )
+
+            actual_behavior = ""
+
+            root_cause = (
+                "CodeDoctor could not complete AI analysis."
+            )
+
+            runtime_context_result = (
+                "No runtime evidence was available before "
+                "the AI analysis request failed."
+            )
+
+        retry_message = ""
+
+        if retry_after > 0:
+
+            retry_message = (
+                f" You can try again in about "
+                f"{retry_after} seconds."
+            )
+
+        return DebugResponse(
+            problem=problem,
+
+            explanation=(
+                friendly_message
+                + retry_message
+            ),
+
+            fixed_code="",
+
+            concept="Other",
+
+            learning_tip=(
+                "Once the AI service is available, "
+                "CodeDoctor can provide a deeper explanation "
+                "and learning guidance."
+            ),
+
+            hint="",
+
+            question="",
+
+            diagnosisType=diagnosis,
+
+            severity="Medium",
+
+            location="",
+
+            evidence=evidence,
+
+            debugSteps=[
+                "Read the actual execution error shown above.",
+                "Locate the line and operation identified by the runtime.",
+                "Inspect the values involved in that operation.",
+                "Retry the AI analysis when the service is available.",
+            ],
+
+            rootCause=root_cause,
+
+            fixSummary=(
+                "CodeDoctor could not generate an AI correction "
+                "because the analysis service is temporarily "
+                "unavailable."
+            ),
+
+            alternatives=[],
+
+            qualitySuggestions=[],
+
+            beginnerMistakes=[],
+
+            expectedBehavior="",
+
+            actualBehavior=actual_behavior,
+
+            changeExplanation="",
+
+            runtimeContext=runtime_context_result,
+
+            analysisStatus="unavailable",
+
+            analysisErrorType=error_type,
+
+            analysisErrorMessage=(
+                friendly_message
+                + retry_message
+            ),
+
+            retryAfterSeconds=retry_after,
+        )
+
+    # ========================================================
+    # NORMAL AI RESPONSE
+    # ========================================================
+
+    ai_diagnosis = normalize_diagnosis(
+        data.get(
+            "diagnosisType",
+            "",
+        )
+    )
+
+    # Actual execution evidence wins.
+    if detected_diagnosis:
+
+        ai_diagnosis = detected_diagnosis
+
+    fixed_code = clean_code_block(
+        str(
+            data.get(
+                "fixed_code",
+                "",
+            )
+            or ""
+        )
+    )
+
+    if ai_diagnosis == "Correct":
+
+        fixed_code = request.code
+
+    problem = str(
+        data.get("problem") or ""
+    ).strip()
+
+    explanation = str(
+        data.get("explanation") or ""
+    ).strip()
+
+    concept = normalize_concept(
+        str(
+            data.get("concept") or ""
+        ),
+        language,
+    )
+
+    learning_tip = str(
+        data.get("learning_tip") or ""
+    ).strip()
+
+    hint = str(
+        data.get("hint") or ""
+    ).strip()
+
+    question = str(
+        data.get("question") or ""
+    ).strip()
+
+    severity = normalize_severity(
+        data.get(
+            "severity",
+            "",
+        )
+    )
+
+    location = str(
+        data.get("location") or ""
+    ).strip()
+
+    evidence = str(
+        data.get("evidence") or ""
+    ).strip()
+
+    root_cause = str(
+        data.get("rootCause") or ""
+    ).strip()
+
+    fix_summary = str(
+        data.get("fixSummary") or ""
+    ).strip()
+
+    expected_behavior = str(
+        data.get("expectedBehavior") or ""
+    ).strip()
+
+    actual_behavior = str(
+        data.get("actualBehavior") or ""
+    ).strip()
+
+    change_explanation = str(
+        data.get("changeExplanation") or ""
+    ).strip()
+
+    runtime_context_result = str(
+        data.get("runtimeContext") or ""
+    ).strip()
+
+    debug_steps = normalize_string_list(
+        data.get("debugSteps"),
+        maximum=6,
+    )
+
+    alternatives = normalize_alternatives(
+        data.get("alternatives")
+    )
+
+    quality_suggestions = normalize_quality_suggestions(
+        data.get("qualitySuggestions")
+    )
+
+    beginner_mistakes = normalize_string_list(
+        data.get("beginnerMistakes"),
+        maximum=3,
+    )
+
+    # ========================================================
+    # AUTHORITATIVE RUNTIME PROTECTION
+    # ========================================================
+
+    if detected_diagnosis:
+
+        ai_diagnosis = detected_diagnosis
+
+        if runtime_error:
+
+            evidence = runtime_error
+
+    # ========================================================
+    # FALLBACKS
+    # ========================================================
+
+    if not problem:
+
+        if ai_diagnosis == "Correct":
+
+            problem = "No error detected."
+
+        elif ai_diagnosis == "Environment Error":
+
+            problem = (
+                "The execution environment prevented "
+                "the program from running correctly."
+            )
+
+        else:
+
+            problem = (
+                "The code contains an issue."
+            )
+
+    if not explanation:
+
+        explanation = (
+            "CodeDoctor identified the issue from "
+            "the submitted code and available "
+            "execution evidence."
+        )
+
+    if not learning_tip:
+
+        learning_tip = (
+            "Read the error carefully, locate where "
+            "it happened, and trace the values involved."
+        )
+
+    if not hint:
+
+        hint = (
+            "Look closely at the operation connected "
+            "to the reported problem."
+        )
+
+    if not question:
+
+        question = (
+            "What was the program trying to do at "
+            "the location identified by the diagnosis?"
+        )
+
+    if not location:
+
+        location = (
+            "See the location identified by the "
+            "execution error or code analysis."
+        )
+
+    if not evidence:
+
+        if runtime_error:
+
+            evidence = runtime_error
+
+        elif runtime_output:
+
+            evidence = runtime_output
+
+        else:
+
+            evidence = (
+                "Based on static analysis of the "
+                "submitted code."
+            )
+
+    if not root_cause:
+
+        root_cause = problem
+
+    if not fix_summary:
+
+        if ai_diagnosis == "Correct":
+
+            fix_summary = (
+                "No changes were necessary."
+            )
+
+        elif ai_diagnosis == "Environment Error":
+
+            fix_summary = (
+                "No code change was required because "
+                "the execution environment caused the failure."
+            )
+
+        else:
+
+            fix_summary = (
+                "The corrected code addresses the "
+                "identified problem."
+            )
+
+    if not change_explanation:
+
+        change_explanation = fix_summary
+
+    if not debug_steps:
+
+        debug_steps = [
+            "Read the reported error or output carefully.",
+            "Locate the relevant code and values.",
+            "Compare the actual behavior with the intended behavior.",
+            "Trace the operation that caused the problem.",
+        ]
+
+    if runtime_output:
+
+        if not actual_behavior:
+
+            actual_behavior = runtime_output
+
+    if runtime_error:
+
+        if not actual_behavior:
+
+            actual_behavior = runtime_error
+
+        if not runtime_context_result:
+
+            runtime_context_result = (
+                "The analysis used the actual execution "
+                "error as primary evidence."
+            )
+
+    # Environment errors should not receive fake alternatives.
+    if ai_diagnosis == "Environment Error":
+
+        alternatives = []
+
+    return DebugResponse(
+        problem=problem,
+
+        explanation=explanation,
+
+        fixed_code=fixed_code,
+
+        concept=concept,
+
+        learning_tip=learning_tip,
+
+        hint=hint,
+
+        question=question,
+
+        diagnosisType=ai_diagnosis,
+
+        severity=severity,
+
+        location=location,
+
+        evidence=evidence,
+
+        debugSteps=debug_steps,
+
+        rootCause=root_cause,
+
+        fixSummary=fix_summary,
+
+        alternatives=alternatives,
+
+        qualitySuggestions=quality_suggestions,
+
+        beginnerMistakes=beginner_mistakes,
+
+        expectedBehavior=expected_behavior,
+
+        actualBehavior=actual_behavior,
+
+        changeExplanation=change_explanation,
+
+        runtimeContext=runtime_context_result,
+
+        analysisStatus="complete",
+
+        analysisErrorType="",
+
+        analysisErrorMessage="",
+
+        retryAfterSeconds=0,
+    )
+
+
+# ============================================================
+# EVALUATE LEARNING MODE ANSWER
+# ============================================================
 
 @app.post("/evaluate-answer")
-def evaluate_answer(request: EvaluateAnswerRequest):
+def evaluate_answer(
+    request: EvaluateAnswerRequest,
+):
+
+    language = normalize_language(
+        request.language
+    )
+
+    if language not in ALLOWED_LANGUAGES:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: {request.language}",
+        )
 
     if not request.learningAnswer.strip():
 
         raise HTTPException(
             status_code=400,
-            detail="Please provide your answer before checking it."
+            detail="Learning answer cannot be empty.",
         )
-
-
-    # ==========================================
-    # SUPPORTED LANGUAGES
-    # ==========================================
-
-    supported_languages = {
-        "javascript",
-        "python",
-        "typescript",
-        "java",
-        "c++"
-    }
-
-    language = request.language.lower().strip()
-
-    if language not in supported_languages:
-
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported language: {request.language}"
-        )
-
-
-    # ==========================================
-    # AI PROMPT
-    # ==========================================
 
     prompt = f"""
-You are CodeDoctor, an AI coding tutor for beginner and junior programmers.
+You are CodeDoctor, a patient programming teacher.
 
-A student is debugging code and has been asked to explain what they think
-is wrong.
+Evaluate whether the student actually understands the
+coding problem.
 
-Your job is NOT to immediately give them the corrected code.
-
-Instead, evaluate their reasoning and teach them.
-
-
-==================================================
-PROGRAMMING LANGUAGE
-==================================================
-
+LANGUAGE:
 {language}
 
-
-==================================================
-USER'S CODE
-==================================================
-
+ORIGINAL CODE:
 {request.code}
 
-
-==================================================
-IDENTIFIED PROBLEM
-==================================================
-
+PROBLEM:
 {request.problem}
 
-
-==================================================
-EXPLANATION
-==================================================
-
+CODEDOCTOR EXPLANATION:
 {request.explanation}
 
+DIAGNOSIS:
+{request.diagnosisType}
 
-==================================================
-STUDENT'S ANSWER
-==================================================
+ROOT CAUSE:
+{request.rootCause}
 
+DEBUGGING STEPS:
+{json.dumps(request.debugSteps)}
+
+STUDENT ANSWER:
 {request.learningAnswer}
 
+Focus on:
 
-==================================================
-YOUR TASK
-==================================================
+- technical understanding
+- causal reasoning
+- identifying the actual problem
+- understanding why it happened
+- whether the explanation demonstrates transferable understanding
 
-Evaluate the student's answer.
+Do not judge grammar harshly.
 
-Determine whether their reasoning is:
+Do not require the student to use exact wording.
 
-- CORRECT
-- PARTIALLY_CORRECT
-- INCORRECT
+A student can receive a high score if their explanation
+uses different words but demonstrates the correct idea.
 
+Score:
 
-==================================================
-FEEDBACK RULES
-==================================================
+70-100 = CORRECT
+40-69 = PARTIALLY_CORRECT
+0-39 = INCORRECT
 
-1. Be encouraging but honest.
-
-2. Explain what the student understood correctly.
-
-3. If they are wrong, explain the misunderstanding.
-
-4. Give them a useful hint that helps them discover the answer themselves.
-
-5. DO NOT reveal the corrected code.
-
-6. DO NOT simply repeat the original explanation.
-
-7. Keep the response beginner-friendly.
-
-8. If the student is partially correct, clearly explain what they
-   got right and what they missed.
-
-9. Ask a short follow-up question that makes them think.
-
-10. Never invent information that is not supported by the user's code,
-    identified problem, or explanation.
-
-11. Do not tell the student to reveal the fixed code.
-
-12. The goal is to help the student learn, not simply tell them the answer.
-
-
-==================================================
-OUTPUT FORMAT
-==================================================
-
-Return ONLY valid JSON.
-
-Do not use Markdown.
-
-Do not use code fences.
-
-Do not add anything before or after the JSON.
-
-Return exactly this structure:
+Return ONLY valid JSON:
 
 {{
+    "correct": true,
+    "score": 0,
     "result": "CORRECT",
-    "feedback": "Your feedback here.",
-    "hint": "A useful hint here.",
-    "question": "A question that makes the student think."
+    "feedback": "useful feedback",
+    "whatTheyGotRight": "what they understood",
+    "whatTheyMissed": "what they missed",
+    "nextHint": "helpful next hint",
+    "question": "optional follow-up question"
 }}
-
-The "result" field MUST be exactly one of:
-
-CORRECT
-PARTIALLY_CORRECT
-INCORRECT
 """
-
-
-    # ==========================================
-    # CALL AI
-    # ==========================================
 
     try:
 
         response = client.chat.completions.create(
-            model="gemini-3.5-flash-lite",
+            model=MODEL_NAME,
             messages=[
                 {
+                    "role": "system",
+                    "content": (
+                        "You are a patient programming "
+                        "teacher. Return only valid JSON."
+                    ),
+                },
+                {
                     "role": "user",
-                    "content": prompt
-                }
+                    "content": prompt,
+                },
             ],
-            response_format={
-                "type": "json_object"
-            }
+            temperature=0.2,
         )
 
+        content = (
+            response.choices[0]
+            .message.content
+            or ""
+        ).strip()
 
-        raw_response = response.choices[0].message.content
-
-
-        if not raw_response:
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an empty response from the AI."
-            )
-
-
-        # ==========================================
-        # PARSE JSON
-        # ==========================================
-
-        try:
-
-            parsed_response = json.loads(raw_response)
-
-        except json.JSONDecodeError as error:
-
-            print(
-                "Invalid AI answer evaluation JSON:",
-                error
-            )
-
-            print(
-                "Raw response:",
-                raw_response
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an invalid answer evaluation."
-            )
-
-
-        # ==========================================
-        # VALIDATE RESULT
-        # ==========================================
-
-        allowed_results = {
-            "CORRECT",
-            "PARTIALLY_CORRECT",
-            "INCORRECT"
-        }
-
-        result = parsed_response.get("result")
-
-        if result not in allowed_results:
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an invalid answer evaluation result."
-            )
-
-
-        required_fields = {
-            "result",
-            "feedback",
-            "hint",
-            "question"
-        }
-
-        if not required_fields.issubset(parsed_response.keys()):
-
-            raise HTTPException(
-                status_code=500,
-                detail="CodeDoctor received an incomplete answer evaluation."
-            )
-
-
-        return parsed_response
-
-
-    # ==========================================
-    # ERROR HANDLING
-    # ==========================================
+        result = extract_json(content)
 
     except HTTPException:
-
         raise
 
-
-    except Exception as error:
+    except Exception as exc:
 
         print(
-            "Error evaluating student answer:",
-            error
+            "EVALUATE ERROR:",
+            repr(exc),
         )
 
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while evaluating your answer."
-        ) from error
+        error_type = classify_ai_service_error(
+            exc
+        )
+
+        retry_after = extract_retry_after_seconds(
+            exc
+        )
+
+        message = friendly_ai_service_message(
+            error_type
+        )
+
+        retry_message = ""
+
+        if retry_after > 0:
+
+            retry_message = (
+                f" You can try again in about "
+                f"{retry_after} seconds."
+            )
+
+        return {
+            "correct": False,
+            "score": 0,
+            "result": "UNAVAILABLE",
+            "feedback": (
+                message
+                + retry_message
+            ),
+            "whatTheyGotRight": "",
+            "whatTheyMissed": "",
+            "nextHint": "",
+            "question": "",
+            "analysisStatus": "unavailable",
+            "analysisErrorType": error_type,
+            "analysisErrorMessage": (
+                message
+                + retry_message
+            ),
+            "retryAfterSeconds": retry_after,
+        }
+
+    try:
+
+        score = int(
+            result.get(
+                "score",
+                0,
+            )
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        score = 0
+
+    score = max(
+        0,
+        min(
+            100,
+            score,
+        ),
+    )
+
+    if score >= 70:
+
+        calculated_result = "CORRECT"
+
+    elif score >= 40:
+
+        calculated_result = "PARTIALLY_CORRECT"
+
+    else:
+
+        calculated_result = "INCORRECT"
+
+    returned_result = str(
+        result.get(
+            "result",
+            calculated_result,
+        )
+    ).strip().upper()
+
+    if returned_result not in {
+        "CORRECT",
+        "PARTIALLY_CORRECT",
+        "INCORRECT",
+    }:
+
+        returned_result = calculated_result
+
+    return {
+        "correct": returned_result == "CORRECT",
+
+        "score": score,
+
+        "result": returned_result,
+
+        "feedback": str(
+            result.get("feedback") or ""
+        ).strip(),
+
+        "whatTheyGotRight": str(
+            result.get("whatTheyGotRight") or ""
+        ).strip(),
+
+        "whatTheyMissed": str(
+            result.get("whatTheyMissed") or ""
+        ).strip(),
+
+        "nextHint": str(
+            result.get("nextHint") or ""
+        ).strip(),
+
+        "question": str(
+            result.get("question") or ""
+        ).strip(),
+
+        "analysisStatus": "complete",
+
+        "analysisErrorType": "",
+
+        "analysisErrorMessage": "",
+
+        "retryAfterSeconds": 0,
+    }
+
+
+# ============================================================
+# LOCAL DEBUG INFORMATION
+# ============================================================
+
+if __name__ == "__main__":
+
+    import uvicorn
+
+    port = int(
+        os.getenv(
+            "PORT",
+            "8000",
+        )
+    )
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+    )

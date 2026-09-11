@@ -14,7 +14,7 @@ const normalizeConcept = (concept) => {
     return 'Unknown';
   }
 
-  const normalized = String(concept).trim().toLowerCase();
+  const normalized = concept.trim().toLowerCase();
 
   const exactConcepts = {
     variables: 'Variables',
@@ -162,7 +162,7 @@ const normalizeConcept = (concept) => {
     return 'OOP';
   }
 
-  return String(concept).trim();
+  return concept.trim();
 };
 
 // ==========================================
@@ -242,7 +242,10 @@ const evidenceTitle = (type) => {
     unknown: 'ANALYSIS EVIDENCE',
   };
 
-  return titles[normalizeDiagnosisType(type)] || 'ANALYSIS EVIDENCE';
+  return (
+    titles[normalizeDiagnosisType(type)] ||
+    'ANALYSIS EVIDENCE'
+  );
 };
 
 const cleanFixedCode = (value) => {
@@ -277,20 +280,30 @@ const normalizeAlternative = (alternative) => {
   }
 
   return {
-    title: alternative.title || 'Alternative',
+    title:
+      alternative.title ||
+      'Alternative',
+
     description:
       alternative.description ||
       alternative.explanation ||
       '',
+
     tradeoff:
       alternative.tradeoff ||
       alternative.tradeoffs ||
       '',
-    code: cleanFixedCode(alternative.code || ''),
+
+    code:
+      cleanFixedCode(
+        alternative.code || ''
+      ),
   };
 };
 
-const normalizeQualitySuggestion = (suggestion) => {
+const normalizeQualitySuggestion = (
+  suggestion
+) => {
   if (typeof suggestion === 'string') {
     return {
       area: 'General',
@@ -303,43 +316,15 @@ const normalizeQualitySuggestion = (suggestion) => {
   }
 
   return {
-    area: suggestion.area || 'General',
+    area:
+      suggestion.area ||
+      'General',
+
     suggestion:
       suggestion.suggestion ||
       suggestion.description ||
       '',
   };
-};
-
-// ==========================================
-// AI SERVICE HELPERS
-// ==========================================
-
-const normalizeAnalysisStatus = (status) => {
-  const value = String(status || '')
-    .trim()
-    .toLowerCase();
-
-  if (
-    value === 'unavailable' ||
-    value === 'failed' ||
-    value === 'error' ||
-    value === 'service_unavailable'
-  ) {
-    return 'unavailable';
-  }
-
-  return 'complete';
-};
-
-const hasRuntimeEvidence = (runResult) => {
-  return Boolean(
-    runResult &&
-    (
-      runResult.output ||
-      runResult.error
-    )
-  );
 };
 
 // ==========================================
@@ -373,23 +358,33 @@ function App() {
   // CURRENT HISTORY SESSION
   // ==========================================
 
-  const [currentHistoryId, setCurrentHistoryId] = useState(null);
+  const [currentHistoryId, setCurrentHistoryId] =
+    useState(null);
 
   // ==========================================
   // LEARNING MODE
   // ==========================================
 
-  const [learningAnswer, setLearningAnswer] = useState('');
-  const [answerFeedback, setAnswerFeedback] = useState(null);
-  const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
-  const [hasAttemptedAnswer, setHasAttemptedAnswer] = useState(false);
+  const [learningAnswer, setLearningAnswer] =
+    useState('');
+
+  const [answerFeedback, setAnswerFeedback] =
+    useState(null);
+
+  const [isEvaluatingAnswer, setIsEvaluatingAnswer] =
+    useState(false);
+
+  const [hasAttemptedAnswer, setHasAttemptedAnswer] =
+    useState(false);
 
   // ==========================================
   // HISTORY
   // ==========================================
 
   const [history, setHistory] = useState(() => {
-    const savedHistory = localStorage.getItem('codedoctor-history');
+    const savedHistory = localStorage.getItem(
+      'codedoctor-history'
+    );
 
     if (!savedHistory) {
       return [];
@@ -400,50 +395,7 @@ function App() {
 
       return parsedHistory.map((item) => ({
         ...item,
-
         concept: normalizeConcept(item.concept),
-
-        analysisStatus:
-          normalizeAnalysisStatus(
-            item.analysisStatus || 'complete'
-          ),
-
-        analysisErrorType:
-          item.analysisErrorType || '',
-
-        analysisErrorMessage:
-          item.analysisErrorMessage || '',
-
-        retryAfterSeconds:
-          Number(item.retryAfterSeconds) || 0,
-
-        expectedBehavior:
-          item.expectedBehavior || '',
-
-        actualBehavior:
-          item.actualBehavior || '',
-
-        changeExplanation:
-          item.changeExplanation || '',
-
-        runtimeContext:
-          item.runtimeContext || '',
-
-        fixedCode:
-          cleanFixedCode(item.fixedCode || ''),
-
-        alternatives:
-          safeArray(item.alternatives)
-            .map(normalizeAlternative)
-            .filter(Boolean),
-
-        qualitySuggestions:
-          safeArray(item.qualitySuggestions)
-            .map(normalizeQualitySuggestion)
-            .filter(Boolean),
-
-        beginnerMistakes:
-          safeArray(item.beginnerMistakes),
       }));
     } catch (error) {
       console.error(
@@ -455,28 +407,33 @@ function App() {
     }
   });
 
-  const [historySearch, setHistorySearch] = useState('');
-  const [historyFilter, setHistoryFilter] = useState('all');
+  const [historySearch, setHistorySearch] =
+    useState('');
+
+  const [historyFilter, setHistoryFilter] =
+    useState('all');
 
   // ==========================================
   // SETTINGS
   // ==========================================
 
-  const [explanationLevel, setExplanationLevel] = useState(() => {
-    return (
-      localStorage.getItem(
-        'codedoctor-explanation-level'
-      ) || 'detailed'
-    );
-  });
+  const [explanationLevel, setExplanationLevel] =
+    useState(() => {
+      return (
+        localStorage.getItem(
+          'codedoctor-explanation-level'
+        ) || 'detailed'
+      );
+    });
 
-  const [debuggingMode, setDebuggingMode] = useState(() => {
-    return (
-      localStorage.getItem(
-        'codedoctor-debugging-mode'
-      ) || 'tutor'
-    );
-  });
+  const [debuggingMode, setDebuggingMode] =
+    useState(() => {
+      return (
+        localStorage.getItem(
+          'codedoctor-debugging-mode'
+        ) || 'tutor'
+      );
+    });
 
   const [theme, setTheme] = useState(() => {
     return (
@@ -516,55 +473,16 @@ function App() {
     }
 
     try {
-      const parsedHistory = JSON.parse(savedHistory);
+      const parsedHistory =
+        JSON.parse(savedHistory);
 
-      const normalizedHistory = parsedHistory.map((item) => ({
-        ...item,
-
-        concept: normalizeConcept(item.concept),
-
-        analysisStatus:
-          normalizeAnalysisStatus(
-            item.analysisStatus || 'complete'
+      const normalizedHistory =
+        parsedHistory.map((item) => ({
+          ...item,
+          concept: normalizeConcept(
+            item.concept
           ),
-
-        analysisErrorType:
-          item.analysisErrorType || '',
-
-        analysisErrorMessage:
-          item.analysisErrorMessage || '',
-
-        retryAfterSeconds:
-          Number(item.retryAfterSeconds) || 0,
-
-        expectedBehavior:
-          item.expectedBehavior || '',
-
-        actualBehavior:
-          item.actualBehavior || '',
-
-        changeExplanation:
-          item.changeExplanation || '',
-
-        runtimeContext:
-          item.runtimeContext || '',
-
-        fixedCode:
-          cleanFixedCode(item.fixedCode || ''),
-
-        alternatives:
-          safeArray(item.alternatives)
-            .map(normalizeAlternative)
-            .filter(Boolean),
-
-        qualitySuggestions:
-          safeArray(item.qualitySuggestions)
-            .map(normalizeQualitySuggestion)
-            .filter(Boolean),
-
-        beginnerMistakes:
-          safeArray(item.beginnerMistakes),
-      }));
+        }));
 
       if (
         JSON.stringify(parsedHistory) !==
@@ -574,8 +492,6 @@ function App() {
           'codedoctor-history',
           JSON.stringify(normalizedHistory)
         );
-
-        setHistory(normalizedHistory);
       }
     } catch (error) {
       console.error(
@@ -584,21 +500,6 @@ function App() {
       );
     }
   }, []);
-
-  // ==========================================
-  // DERIVED AI STATUS
-  // ==========================================
-
-  const aiAnalysisAvailable =
-    !result ||
-    !result.analysisStatus ||
-    result.analysisStatus === 'complete';
-
-  const aiServiceUnavailable =
-    Boolean(
-      result &&
-      result.analysisStatus === 'unavailable'
-    );
 
   // ==========================================
   // RESET CURRENT ANALYSIS
@@ -654,223 +555,92 @@ function App() {
         }
       );
 
-      let data = null;
-
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-          data?.message ||
-          'Something went wrong while contacting CodeDoctor.'
+          data.detail ||
+            'Something went wrong.'
         );
       }
 
       const normalizedConcept =
-        normalizeConcept(data?.concept);
-
-      const analysisStatus =
-        normalizeAnalysisStatus(
-          data?.analysisStatus
-        );
+        normalizeConcept(data.concept);
 
       const analysisResult = {
-        problem:
-          data?.problem ||
-          (
-            runResult?.error
-              ? 'The program produced a runtime or compiler error.'
-              : 'CodeDoctor could not provide a detailed diagnosis.'
-          ),
+  problem: data.problem || '',
 
-        explanation:
-          data?.explanation || '',
+  explanation:
+    data.explanation || '',
 
-        fixedCode:
-          analysisStatus === 'complete'
-            ? cleanFixedCode(
-                data?.fixed_code
-              )
-            : '',
+  fixedCode: cleanFixedCode(
+    data.fixed_code
+  ),
 
-        concept:
-          normalizedConcept,
+  concept: normalizedConcept,
 
-        learningTip:
-          data?.learning_tip || '',
+  learningTip:
+    data.learning_tip || '',
 
-        hint:
-          data?.hint || '',
+  hint:
+    data.hint || '',
 
-        question:
-          data?.question || '',
+  question:
+    data.question || '',
 
-        diagnosisType:
-          normalizeDiagnosisType(
-            data?.diagnosisType ||
-            (
-              runResult?.error
-                ? 'runtime_error'
-                : 'unknown'
-            )
-          ),
+  diagnosisType:
+    normalizeDiagnosisType(
+      data.diagnosisType || 'unknown'
+    ),
 
-        severity:
-          data?.severity || 'Medium',
+  severity:
+    data.severity || 'Medium',
 
-        location:
-          data?.location || '',
+  location:
+    data.location || '',
 
-        evidence:
-          data?.evidence ||
-          runResult?.error ||
-          runResult?.output ||
-          '',
+  evidence:
+    data.evidence || '',
 
-        debugSteps:
-          analysisStatus === 'complete'
-            ? safeArray(data?.debugSteps)
-            : [],
+  debugSteps:
+    safeArray(data.debugSteps),
 
-        rootCause:
-          analysisStatus === 'complete'
-            ? data?.rootCause || ''
-            : '',
+  rootCause:
+    data.rootCause || '',
 
-        fixSummary:
-          analysisStatus === 'complete'
-            ? data?.fixSummary || ''
-            : '',
+  fixSummary:
+    data.fixSummary || '',
 
-        alternatives:
-          analysisStatus === 'complete'
-            ? safeArray(data?.alternatives)
-                .map(normalizeAlternative)
-                .filter(Boolean)
-            : [],
+  alternatives:
+    safeArray(data.alternatives)
+      .map(normalizeAlternative)
+      .filter(Boolean),
 
-        qualitySuggestions:
-          analysisStatus === 'complete'
-            ? safeArray(data?.qualitySuggestions)
-                .map(normalizeQualitySuggestion)
-                .filter(Boolean)
-            : [],
+  qualitySuggestions:
+    safeArray(data.qualitySuggestions)
+      .map(normalizeQualitySuggestion)
+      .filter(Boolean),
 
-        beginnerMistakes:
-          analysisStatus === 'complete'
-            ? safeArray(data?.beginnerMistakes)
-            : [],
+  beginnerMistakes:
+    safeArray(data.beginnerMistakes),
 
-        expectedBehavior:
-          data?.expectedBehavior || '',
+  expectedBehavior:
+    data.expectedBehavior || '',
 
-        actualBehavior:
-          data?.actualBehavior ||
-          runResult?.error ||
-          runResult?.output ||
-          '',
+  actualBehavior:
+    data.actualBehavior || '',
 
-        changeExplanation:
-          analysisStatus === 'complete'
-            ? data?.changeExplanation || ''
-            : '',
+  changeExplanation:
+    data.changeExplanation || '',
 
-        runtimeContext:
-          data?.runtimeContext || '',
-
-        analysisStatus,
-
-        analysisErrorType:
-          data?.analysisErrorType || '',
-
-        analysisErrorMessage:
-          data?.analysisErrorMessage || '',
-
-        retryAfterSeconds:
-          Number(
-            data?.retryAfterSeconds
-          ) || 0,
-      };
-
-      /*
-       * The execution result is more authoritative than
-       * an AI classification. If the actual program produced
-       * a runtime/compiler error, don't allow an AI service
-       * problem to overwrite that diagnosis.
-       */
-      if (
-        runResult &&
-        !runResult.success &&
-        runResult.error
-      ) {
-        const runtimeErrorText =
-          runResult.error;
-
-        const normalizedRuntimeError =
-          runtimeErrorText.toLowerCase();
-
-        let runtimeDiagnosis =
-          'runtime_error';
-
-        if (
-          normalizedRuntimeError.includes(
-            'syntaxerror'
-          ) ||
-          normalizedRuntimeError.includes(
-            'syntax error'
-          ) ||
-          normalizedRuntimeError.includes(
-            'parse error'
-          )
-        ) {
-          runtimeDiagnosis =
-            'syntax_error';
-        } else if (
-          normalizedRuntimeError.includes(
-            'typeerror'
-          ) ||
-          normalizedRuntimeError.includes(
-            'type error'
-          )
-        ) {
-          runtimeDiagnosis =
-            'type_error';
-        } else if (
-          normalizedRuntimeError.includes(
-            'compilation'
-          ) ||
-          normalizedRuntimeError.includes(
-            'compiler'
-          ) ||
-          normalizedRuntimeError.includes(
-            'cannot find symbol'
-          )
-        ) {
-          runtimeDiagnosis =
-            'compilation_error';
-        }
-
-        analysisResult.diagnosisType =
-          runtimeDiagnosis;
-
-        analysisResult.evidence =
-          runtimeErrorText;
-
-        analysisResult.actualBehavior =
-          runtimeErrorText;
-      }
+  runtimeContext:
+    data.runtimeContext || '',
+};
 
       const newHistoryItem = {
         id: Date.now(),
-
         code,
-
         language,
-
         debuggingMode,
 
         ...analysisResult,
@@ -879,10 +649,7 @@ function App() {
           new Date().toLocaleString(),
 
         answerResult: null,
-        answerScore: null,
         answerFeedback: null,
-        whatTheyGotRight: '',
-        whatTheyMissed: '',
       };
 
       const updatedHistory = [
@@ -908,112 +675,57 @@ function App() {
         error
       );
 
-      /*
-       * IMPORTANT:
-       * A failure reaching the AI/backend is NOT the same
-       * thing as an Environment Error in the user's program.
-       *
-       * Preserve actual runtime evidence if we have it.
-       */
-      const runtimeFailure =
-        runResult &&
-        !runResult.success &&
-        runResult.error;
-
-      const fallbackDiagnosis =
-        runtimeFailure
-          ? normalizeDiagnosisType(
-              runResult.error
-                .toLowerCase()
-                .includes('typeerror')
-                ? 'type_error'
-                : runResult.error
-                    .toLowerCase()
-                    .includes('syntaxerror')
-                  ? 'syntax_error'
-                  : 'runtime_error'
-            )
-          : 'unknown';
-
-      const unavailableResult = {
+      setResult({
         problem:
-          runtimeFailure
-            ? 'Your code produced an execution error, but the AI analysis service is currently unavailable.'
-            : 'CodeDoctor could not complete the AI analysis.',
+          'Unable to analyze your code.',
 
         explanation:
-          'The CodeDoctor AI analysis service could not provide its full analysis right now.',
+          error.message ||
+          'Something went wrong while connecting to CodeDoctor.',
 
         fixedCode: '',
 
-        concept: 'Unknown',
+        concept: 'Connection',
 
-        learningTip: '',
+        learningTip:
+          'Make sure the CodeDoctor backend is available.',
 
-        hint: '',
+        hint:
+          'Check your internet connection and try again.',
 
-        question: '',
+        question:
+          'Can you identify whether the problem is in your code or in the connection to the backend?',
 
         diagnosisType:
-          fallbackDiagnosis,
+          'Environment Error',
 
         severity:
-          runtimeFailure
-            ? 'High'
-            : 'Medium',
+          'High',
 
         location:
-          runtimeFailure
-            ? 'Program execution'
-            : 'CodeDoctor AI service',
+          'CodeDoctor backend connection',
 
         evidence:
-          runtimeFailure
-            ? runResult.error
-            : (
-                error.message ||
-                'No AI service response.'
-              ),
+          error.message || 'No backend response.',
 
-        debugSteps: [],
+        debugSteps: [
+          'Check that the backend server is running.',
+          'Check your network connection.',
+          'Try debugging again.',
+        ],
 
-        rootCause: '',
+        rootCause:
+          'CodeDoctor could not communicate with the analysis backend.',
 
-        fixSummary: '',
+        fixSummary:
+          'No code change was made because the analysis service was unavailable.',
 
         alternatives: [],
 
         qualitySuggestions: [],
 
         beginnerMistakes: [],
-
-        expectedBehavior: '',
-
-        actualBehavior:
-          runtimeFailure
-            ? runResult.error
-            : '',
-
-        changeExplanation: '',
-
-        runtimeContext:
-          runtimeFailure
-            ? 'The actual program error is shown above. The AI explanation is temporarily unavailable.'
-            : '',
-
-        analysisStatus: 'unavailable',
-
-        analysisErrorType:
-          'connection_error',
-
-        analysisErrorMessage:
-          error.message ||
-          'The AI analysis service is temporarily unavailable.',
-
-        retryAfterSeconds: 0,
-      };
-
-      setResult(unavailableResult);
+      });
     } finally {
       setIsDebugging(false);
     }
@@ -1053,18 +765,12 @@ function App() {
         }
       );
 
-      let data = null;
-
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-          'Something went wrong while running your code.'
+          data.detail ||
+            'Something went wrong.'
         );
       }
 
@@ -1093,7 +799,6 @@ function App() {
 
   const checkLearningAnswer = async () => {
     if (
-      !aiAnalysisAvailable ||
       !learningAnswer.trim() ||
       !result
     ) {
@@ -1136,50 +841,18 @@ function App() {
         }
       );
 
-      let data = null;
-
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-          'Something went wrong while evaluating your answer.'
+          data.detail ||
+            'Something went wrong while evaluating your answer.'
         );
-      }
-
-      /*
-       * If the AI service itself is unavailable during answer
-       * evaluation, don't record a fake learning result.
-       */
-      if (
-        data?.analysisStatus === 'unavailable' ||
-        data?.result === 'AI_UNAVAILABLE'
-      ) {
-        setAnswerFeedback({
-          result: 'ERROR',
-          score: 0,
-
-          feedback:
-            data?.analysisErrorMessage ||
-            'CodeDoctor could not evaluate your answer because the AI service is temporarily unavailable.',
-
-          hint:
-            'Try checking your reasoning against the problem CodeDoctor identified.',
-
-          question:
-            'What part of the code do you think is responsible for the problem?',
-        });
-
-        return;
       }
 
       const score =
         Number.isFinite(
-          Number(data?.score)
+          Number(data.score)
         )
           ? Math.max(
               0,
@@ -1191,7 +864,7 @@ function App() {
           : 0;
 
       let resultStatus =
-        data?.result;
+        data.result;
 
       if (!resultStatus) {
         if (score >= 70) {
@@ -1209,21 +882,21 @@ function App() {
         score,
 
         feedback:
-          data?.feedback || '',
+          data.feedback || '',
 
         hint:
-          data?.nextHint ||
-          data?.hint ||
+          data.nextHint ||
+          data.hint ||
           '',
 
         question:
-          data?.question || '',
+          data.question || '',
 
         whatTheyGotRight:
-          data?.whatTheyGotRight || '',
+          data.whatTheyGotRight || '',
 
         whatTheyMissed:
-          data?.whatTheyMissed || '',
+          data.whatTheyMissed || '',
       });
 
       const updatedHistory =
@@ -1242,14 +915,14 @@ function App() {
                 score,
 
               answerFeedback:
-                data?.feedback || '',
+                data.feedback || '',
 
               whatTheyGotRight:
-                data?.whatTheyGotRight ||
+                data.whatTheyGotRight ||
                 '',
 
               whatTheyMissed:
-                data?.whatTheyMissed ||
+                data.whatTheyMissed ||
                 '',
             };
           }
@@ -1326,36 +999,23 @@ function App() {
     setLanguage(item.language);
 
     setResult({
-      problem:
-        item.problem || '',
-
-      explanation:
-        item.explanation || '',
-
-      fixedCode:
-        cleanFixedCode(
-          item.fixedCode
-        ),
-
-      concept:
-        normalizeConcept(
-          item.concept
-        ),
-
+      problem: item.problem,
+      explanation: item.explanation,
+      fixedCode: cleanFixedCode(
+        item.fixedCode
+      ),
+      concept: normalizeConcept(
+        item.concept
+      ),
       learningTip:
         item.learningTip || '',
-
-      hint:
-        item.hint || '',
-
+      hint: item.hint || '',
       question:
         item.question || '',
 
       diagnosisType:
-        normalizeDiagnosisType(
-          item.diagnosisType ||
-          'unknown'
-        ),
+        item.diagnosisType ||
+        'Correct',
 
       severity:
         item.severity || 'Medium',
@@ -1376,54 +1036,17 @@ function App() {
         item.fixSummary || '',
 
       alternatives:
-        safeArray(item.alternatives)
-          .map(normalizeAlternative)
-          .filter(Boolean),
+        safeArray(item.alternatives),
 
       qualitySuggestions:
-        safeArray(item.qualitySuggestions)
-          .map(normalizeQualitySuggestion)
-          .filter(Boolean),
+        safeArray(
+          item.qualitySuggestions
+        ),
 
       beginnerMistakes:
         safeArray(
           item.beginnerMistakes
         ),
-
-      /*
-       * Phase 3 fields.
-       *
-       * Old history records don't have these,
-       * so they safely default to completed AI analysis.
-       */
-      expectedBehavior:
-        item.expectedBehavior || '',
-
-      actualBehavior:
-        item.actualBehavior || '',
-
-      changeExplanation:
-        item.changeExplanation || '',
-
-      runtimeContext:
-        item.runtimeContext || '',
-
-      analysisStatus:
-        normalizeAnalysisStatus(
-          item.analysisStatus ||
-          'complete'
-        ),
-
-      analysisErrorType:
-        item.analysisErrorType || '',
-
-      analysisErrorMessage:
-        item.analysisErrorMessage || '',
-
-      retryAfterSeconds:
-        Number(
-          item.retryAfterSeconds
-        ) || 0,
     });
 
     setRunResult(null);
@@ -1672,7 +1295,8 @@ function App() {
           };
         }
 
-        scores[concept].attempts += 1;
+        scores[concept].attempts +=
+          1;
 
         if (
           item.answerResult ===
@@ -2277,49 +1901,52 @@ function App() {
 
                 </div>
 
-                {/* AI SERVICE UNAVAILABLE */}
+                {/* ROOT CAUSE */}
 
-                {aiServiceUnavailable && (
+                {result.rootCause && (
 
                   <div className="analysis-section">
 
                     <span className="analysis-label">
-                      ⚠️ AI SERVICE UNAVAILABLE
+                      🎯 ROOT CAUSE
                     </span>
 
                     <p>
-                      CodeDoctor was able to inspect
-                      your program, but the AI analysis
-                      service is temporarily unavailable.
+                      {result.rootCause}
                     </p>
 
-                    {result.analysisErrorMessage && (
+                  </div>
+
+                )}
+
+                {/* EXPECTED VS ACTUAL */}
+
+                {(
+                  result.expectedBehavior ||
+                  result.actualBehavior
+                ) && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      📊 EXPECTED VS ACTUAL
+                    </span>
+
+                    {result.expectedBehavior && (
                       <p>
                         <strong>
-                          Service status:
+                          Expected:
                         </strong>{' '}
-                        {result.analysisErrorMessage}
+                        {result.expectedBehavior}
                       </p>
                     )}
 
-                    {result.retryAfterSeconds > 0 && (
-                      <p>
-                        You can try again in about{' '}
-                        <strong>
-                          {result.retryAfterSeconds}
-                        </strong>{' '}
-                        seconds.
-                      </p>
-                    )}
-
-                    {hasRuntimeEvidence(runResult) && (
+                    {result.actualBehavior && (
                       <p>
                         <strong>
-                          Important:
+                          Actual:
                         </strong>{' '}
-                        The runtime/compiler evidence
-                        above is the actual result from
-                        your program and is still valid.
+                        {result.actualBehavior}
                       </p>
                     )}
 
@@ -2327,259 +1954,196 @@ function App() {
 
                 )}
 
-                {/* AI-GENERATED ANALYSIS */}
+                {/* TUTOR MODE */}
 
-                {aiAnalysisAvailable && (
+                {debuggingMode ===
+                  'tutor' && (
 
                   <>
 
-                    {/* ROOT CAUSE */}
+                    <div className="analysis-section tutor-question">
 
-                    {result.rootCause && (
+                      <span className="analysis-label">
+                        🧠 THINK ABOUT IT
+                      </span>
 
-                      <div className="analysis-section">
+                      <p>
+                        {result.question}
+                      </p>
 
-                        <span className="analysis-label">
-                          🎯 ROOT CAUSE
-                        </span>
+                    </div>
 
-                        <p>
-                          {result.rootCause}
-                        </p>
+                    <div className="analysis-section tutor-hint">
 
-                      </div>
+                      <span className="analysis-label">
+                        💡 HINT
+                      </span>
 
-                    )}
+                      <p>
+                        {result.hint}
+                      </p>
 
-                    {/* EXPECTED VS ACTUAL */}
+                    </div>
 
-                    {(
-                      result.expectedBehavior ||
-                      result.actualBehavior
-                    ) && (
+                    <div className="analysis-section your-turn">
 
-                      <div className="analysis-section">
+                      <span className="analysis-label">
+                        ✍️ YOUR TURN
+                      </span>
 
-                        <span className="analysis-label">
-                          📊 EXPECTED VS ACTUAL
-                        </span>
+                      <p>
+                        Before revealing the fix,
+                        explain what you think is
+                        causing the problem.
+                      </p>
 
-                        {result.expectedBehavior && (
-                          <p>
-                            <strong>
-                              Expected:
-                            </strong>{' '}
-                            {result.expectedBehavior}
-                          </p>
-                        )}
+                      <textarea
+                        className="learning-answer"
+                        value={
+                          learningAnswer
+                        }
+                        onChange={(
+                          event
+                        ) => {
 
-                        {result.actualBehavior && (
-                          <p>
-                            <strong>
-                              Actual:
-                            </strong>{' '}
-                            {result.actualBehavior}
-                          </p>
-                        )}
+                          setLearningAnswer(
+                            event.target
+                              .value
+                          );
 
-                      </div>
+                          setAnswerFeedback(
+                            null
+                          );
 
-                    )}
+                          setHasAttemptedAnswer(
+                            false
+                          );
 
-                    {/* TUTOR MODE */}
+                        }}
+                        placeholder="What do you think is causing the problem?"
+                        rows="4"
+                      />
 
-                    {debuggingMode ===
-                      'tutor' && (
+                      <button
+                        className="check-answer-button"
+                        onClick={
+                          checkLearningAnswer
+                        }
+                        disabled={
+                          !learningAnswer.trim() ||
+                          isEvaluatingAnswer
+                        }
+                      >
+                        {isEvaluatingAnswer
+                          ? '🧠 Evaluating...'
+                          : '✅ Check My Answer'}
+                      </button>
 
-                      <>
+                      {hasAttemptedAnswer &&
+                        answerFeedback && (
 
-                        <div className="analysis-section tutor-question">
-
-                          <span className="analysis-label">
-                            🧠 THINK ABOUT IT
-                          </span>
-
-                          <p>
-                            {result.question}
-                          </p>
-
-                        </div>
-
-                        <div className="analysis-section tutor-hint">
-
-                          <span className="analysis-label">
-                            💡 HINT
-                          </span>
-
-                          <p>
-                            {result.hint}
-                          </p>
-
-                        </div>
-
-                        <div className="analysis-section your-turn">
+                        <div className="answer-feedback">
 
                           <span className="analysis-label">
-                            ✍️ YOUR TURN
+
+                            {answerFeedback.result ===
+                            'CORRECT'
+                              ? '✅ CORRECT'
+                              : answerFeedback.result ===
+                                'PARTIALLY_CORRECT'
+                                ? '🟡 PARTIALLY CORRECT'
+                                : answerFeedback.result ===
+                                  'INCORRECT'
+                                  ? '❌ NOT QUITE'
+                                  : '🩺 CODEDOCTOR FEEDBACK'}
+
                           </span>
 
+                          {answerFeedback.score !==
+                            undefined && (
+                            <p>
+                              Score:{' '}
+                              <strong>
+                                {
+                                  answerFeedback.score
+                                }%
+                              </strong>
+                            </p>
+                          )}
+
                           <p>
-                            Before revealing the fix,
-                            explain what you think is
-                            causing the problem.
+                            {
+                              answerFeedback.feedback
+                            }
                           </p>
 
-                          <textarea
-                            className="learning-answer"
-                            value={
-                              learningAnswer
-                            }
-                            onChange={(
-                              event
-                            ) => {
+                          {answerFeedback.whatTheyGotRight && (
 
-                              setLearningAnswer(
-                                event.target.value
-                              );
-
-                              setAnswerFeedback(
-                                null
-                              );
-
-                              setHasAttemptedAnswer(
-                                false
-                              );
-
-                            }}
-                            placeholder="What do you think is causing the problem?"
-                            rows="4"
-                          />
-
-                          <button
-                            className="check-answer-button"
-                            onClick={
-                              checkLearningAnswer
-                            }
-                            disabled={
-                              !learningAnswer.trim() ||
-                              isEvaluatingAnswer ||
-                              !aiAnalysisAvailable
-                            }
-                          >
-                            {isEvaluatingAnswer
-                              ? '🧠 Evaluating...'
-                              : '✅ Check My Answer'}
-                          </button>
-
-                          {hasAttemptedAnswer &&
-                            answerFeedback && (
-
-                            <div className="answer-feedback">
+                            <div className="answer-feedback-hint">
 
                               <span className="analysis-label">
-
-                                {answerFeedback.result ===
-                                'CORRECT'
-                                  ? '✅ CORRECT'
-                                  : answerFeedback.result ===
-                                    'PARTIALLY_CORRECT'
-                                    ? '🟡 PARTIALLY CORRECT'
-                                    : answerFeedback.result ===
-                                      'INCORRECT'
-                                      ? '❌ NOT QUITE'
-                                      : '🩺 CODEDOCTOR FEEDBACK'}
-
+                                ✅ WHAT YOU GOT RIGHT
                               </span>
-
-                              {answerFeedback.score !==
-                                undefined && (
-                                <p>
-                                  Score:{' '}
-                                  <strong>
-                                    {
-                                      answerFeedback.score
-                                    }%
-                                  </strong>
-                                </p>
-                              )}
 
                               <p>
                                 {
-                                  answerFeedback.feedback
+                                  answerFeedback.whatTheyGotRight
                                 }
                               </p>
 
-                              {answerFeedback.whatTheyGotRight && (
+                            </div>
 
-                                <div className="answer-feedback-hint">
+                          )}
 
-                                  <span className="analysis-label">
-                                    ✅ WHAT YOU GOT RIGHT
-                                  </span>
+                          {answerFeedback.whatTheyMissed && (
 
-                                  <p>
-                                    {
-                                      answerFeedback.whatTheyGotRight
-                                    }
-                                  </p>
+                            <div className="answer-feedback-hint">
 
-                                </div>
+                              <span className="analysis-label">
+                                📌 WHAT YOU MISSED
+                              </span>
 
-                              )}
+                              <p>
+                                {
+                                  answerFeedback.whatTheyMissed
+                                }
+                              </p>
 
-                              {answerFeedback.whatTheyMissed && (
+                            </div>
 
-                                <div className="answer-feedback-hint">
+                          )}
 
-                                  <span className="analysis-label">
-                                    📌 WHAT YOU MISSED
-                                  </span>
+                          {answerFeedback.hint && (
 
-                                  <p>
-                                    {
-                                      answerFeedback.whatTheyMissed
-                                    }
-                                  </p>
+                            <div className="answer-feedback-hint">
 
-                                </div>
+                              <span className="analysis-label">
+                                💡 NEXT HINT
+                              </span>
 
-                              )}
+                              <p>
+                                {
+                                  answerFeedback.hint
+                                }
+                              </p>
 
-                              {answerFeedback.hint && (
+                            </div>
 
-                                <div className="answer-feedback-hint">
+                          )}
 
-                                  <span className="analysis-label">
-                                    💡 NEXT HINT
-                                  </span>
+                          {answerFeedback.question && (
 
-                                  <p>
-                                    {
-                                      answerFeedback.hint
-                                    }
-                                  </p>
+                            <div className="answer-feedback-question">
 
-                                </div>
+                              <span className="analysis-label">
+                                🤔 THINK ABOUT THIS
+                              </span>
 
-                              )}
-
-                              {answerFeedback.question && (
-
-                                <div className="answer-feedback-question">
-
-                                  <span className="analysis-label">
-                                    🤔 THINK ABOUT THIS
-                                  </span>
-
-                                  <p>
-                                    {
-                                      answerFeedback.question
-                                    }
-                                  </p>
-
-                                </div>
-
-                              )}
+                              <p>
+                                {
+                                  answerFeedback.question
+                                }
+                              </p>
 
                             </div>
 
@@ -2587,350 +2151,346 @@ function App() {
 
                         </div>
 
-                      </>
-
-                    )}
-
-                    {/* DEBUG STEPS */}
-
-                    {result.debugSteps?.length > 0 && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          🧭 DEBUGGING STEPS
-                        </span>
-
-                        <ol>
-                          {result.debugSteps.map(
-                            (step, index) => (
-                              <li key={index}>
-                                {step}
-                              </li>
-                            )
-                          )}
-                        </ol>
-
-                      </div>
-
-                    )}
-
-                    {/* FIXED CODE */}
-
-                    <div className="analysis-section">
-
-                      <span className="analysis-label">
-                        🔧 FIXED CODE
-                      </span>
-
-                      {debuggingMode ===
-                      'debug' ? (
-
-                        <pre className="fixed-code">
-                          <code>
-                            {
-                              result.fixedCode
-                            }
-                          </code>
-                        </pre>
-
-                      ) : !showFix ? (
-
-                        <div className="reveal-fix-container">
-
-                          <p>
-                            Think you've found the
-                            problem? Reveal the solution
-                            when you're ready.
-                          </p>
-
-                          <button
-                            className="reveal-fix-button"
-                            onClick={() =>
-                              setShowFix(true)
-                            }
-                          >
-                            🔓 Reveal Fix
-                          </button>
-
-                        </div>
-
-                      ) : (
-
-                        <div>
-
-                          <pre className="fixed-code">
-                            <code>
-                              {
-                                result.fixedCode
-                              }
-                            </code>
-                          </pre>
-
-                          <button
-                            className="hide-fix-button"
-                            onClick={() =>
-                              setShowFix(false)
-                            }
-                          >
-                            Hide Fix
-                          </button>
-
-                        </div>
-
                       )}
-
-                    </div>
-
-                    {/* FIX SUMMARY */}
-
-                    {result.fixSummary && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          🛠️ WHAT CHANGED
-                        </span>
-
-                        <p>
-                          {result.fixSummary}
-                        </p>
-
-                      </div>
-
-                    )}
-
-                    {/* CHANGE EXPLANATION */}
-
-                    {result.changeExplanation && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          🧩 WHY THIS CHANGE FIXES IT
-                        </span>
-
-                        <p>
-                          {result.changeExplanation}
-                        </p>
-
-                      </div>
-
-                    )}
-
-                    {/* RUNTIME CONTEXT */}
-
-                    {result.runtimeContext && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          ⚙️ RUNTIME CONTEXT
-                        </span>
-
-                        <p>
-                          {result.runtimeContext}
-                        </p>
-
-                      </div>
-
-                    )}
-
-                    {/* WHY */}
-
-                    <div className="analysis-section">
-
-                      <span className="analysis-label">
-                        📖 WHY
-                      </span>
-
-                      <p>
-                        {result.explanation}
-                      </p>
-
-                    </div>
-
-                    {/* ALTERNATIVE SOLUTIONS */}
-
-                    {result.alternatives?.length > 0 && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          🔀 ALTERNATIVE APPROACHES
-                        </span>
-
-                        {result.alternatives.map(
-                          (alternative, index) => {
-
-                            if (
-                              typeof alternative ===
-                              'string'
-                            ) {
-                              return (
-                                <p key={index}>
-                                  <strong>
-                                    Option {index + 1}:
-                                  </strong>{' '}
-                                  {alternative}
-                                </p>
-                              );
-                            }
-
-                            return (
-                              <div key={index}>
-
-                                <p>
-                                  <strong>
-                                    {alternative.title ||
-                                      `Option ${index + 1}`}
-                                  </strong>
-                                </p>
-
-                                {alternative.description && (
-                                  <p>
-                                    {
-                                      alternative.description
-                                    }
-                                  </p>
-                                )}
-
-                                {alternative.tradeoff && (
-                                  <p>
-                                    <strong>
-                                      Trade-off:
-                                    </strong>{' '}
-                                    {
-                                      alternative.tradeoff
-                                    }
-                                  </p>
-                                )}
-
-                                {alternative.code && (
-                                  <pre className="fixed-code">
-                                    <code>
-                                      {
-                                        alternative.code
-                                      }
-                                    </code>
-                                  </pre>
-                                )}
-
-                              </div>
-                            );
-                          }
-                        )}
-
-                      </div>
-
-                    )}
-
-                    {/* CODE QUALITY */}
-
-                    {result.qualitySuggestions?.length > 0 && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          ✨ CODE QUALITY
-                        </span>
-
-                        {result.qualitySuggestions.map(
-                          (suggestion, index) => {
-
-                            if (
-                              typeof suggestion ===
-                              'string'
-                            ) {
-                              return (
-                                <p key={index}>
-                                  • {suggestion}
-                                </p>
-                              );
-                            }
-
-                            return (
-                              <div key={index}>
-
-                                <p>
-                                  <strong>
-                                    {suggestion.area ||
-                                      `Suggestion ${index + 1}`}
-                                  </strong>
-                                </p>
-
-                                {suggestion.suggestion && (
-                                  <p>
-                                    {
-                                      suggestion.suggestion
-                                    }
-                                  </p>
-                                )}
-
-                              </div>
-                            );
-                          }
-                        )}
-
-                      </div>
-
-                    )}
-
-                    {/* BEGINNER MISTAKES */}
-
-                    {result.beginnerMistakes?.length > 0 && (
-
-                      <div className="analysis-section">
-
-                        <span className="analysis-label">
-                          🎓 BEGINNER MISTAKES
-                        </span>
-
-                        {result.beginnerMistakes.map(
-                          (mistake, index) => (
-                            <p key={index}>
-                              • {mistake}
-                            </p>
-                          )
-                        )}
-
-                      </div>
-
-                    )}
-
-                    {/* CONCEPT */}
-
-                    <div className="analysis-section">
-
-                      <span className="analysis-label">
-                        🧠 CONCEPT
-                      </span>
-
-                      <p>
-                        {normalizeConcept(
-                          result.concept
-                        )}
-                      </p>
-
-                    </div>
-
-                    {/* LEARNING TIP */}
-
-                    <div className="analysis-section">
-
-                      <span className="analysis-label">
-                        📚 LEARNING TIP
-                      </span>
-
-                      <p>
-                        {result.learningTip}
-                      </p>
 
                     </div>
 
                   </>
 
                 )}
+
+                {/* DEBUG STEPS */}
+
+                {result.debugSteps?.length > 0 && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🧭 DEBUGGING STEPS
+                    </span>
+
+                    <ol>
+                      {result.debugSteps.map(
+                        (step, index) => (
+                          <li key={index}>
+                            {step}
+                          </li>
+                        )
+                      )}
+                    </ol>
+
+                  </div>
+
+                )}
+
+                {/* FIXED CODE */}
+
+                <div className="analysis-section">
+
+                  <span className="analysis-label">
+                    🔧 FIXED CODE
+                  </span>
+
+                  {debuggingMode ===
+                  'debug' ? (
+
+                    <pre className="fixed-code">
+                      <code>
+                        {
+                          result.fixedCode
+                        }
+                      </code>
+                    </pre>
+
+                  ) : !showFix ? (
+
+                    <div className="reveal-fix-container">
+
+                      <p>
+                        Think you've found the
+                        problem? Reveal the solution
+                        when you're ready.
+                      </p>
+
+                      <button
+                        className="reveal-fix-button"
+                        onClick={() =>
+                          setShowFix(true)
+                        }
+                      >
+                        🔓 Reveal Fix
+                      </button>
+
+                    </div>
+
+                  ) : (
+
+                    <div>
+
+                      <pre className="fixed-code">
+                        <code>
+                          {
+                            result.fixedCode
+                          }
+                        </code>
+                      </pre>
+
+                      <button
+                        className="hide-fix-button"
+                        onClick={() =>
+                          setShowFix(false)
+                        }
+                      >
+                        Hide Fix
+                      </button>
+
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* FIX SUMMARY */}
+
+                {result.fixSummary && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🛠️ WHAT CHANGED
+                    </span>
+
+                    <p>
+                      {result.fixSummary}
+                    </p>
+
+                  </div>
+
+                )}
+
+                {/* CHANGE EXPLANATION */}
+
+                {result.changeExplanation && (
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🧩 WHY THIS CHANGE FIXES IT
+                    </span>
+
+                    <p>
+                      {result.changeExplanation}
+                    </p>
+
+                  </div>
+                )}
+
+                {/* RUNTIME CONTEXT */}
+
+                {result.runtimeContext && (
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      ⚙️ RUNTIME CONTEXT
+                    </span>
+
+                    <p>
+                      {result.runtimeContext}
+                    </p>
+
+                  </div>
+                )}
+
+                {/* WHY */}
+
+                <div className="analysis-section">
+
+                  <span className="analysis-label">
+                    📖 WHY
+                  </span>
+
+                  <p>
+                    {result.explanation}
+                  </p>
+
+                </div>
+
+                {/* ALTERNATIVE SOLUTIONS */}
+
+                {result.alternatives?.length > 0 && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🔀 ALTERNATIVE APPROACHES
+                    </span>
+
+                    {result.alternatives.map(
+                      (alternative, index) => {
+
+                        if (
+                          typeof alternative ===
+                          'string'
+                        ) {
+                          return (
+                            <p key={index}>
+                              <strong>
+                                Option {index + 1}:
+                              </strong>{' '}
+                              {alternative}
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div key={index}>
+
+                            <p>
+                              <strong>
+                                {alternative.title ||
+                                  `Option ${index + 1}`}
+                              </strong>
+                            </p>
+
+                            {alternative.description && (
+                              <p>
+                                {
+                                  alternative.description
+                                }
+                              </p>
+                            )}
+
+                            {alternative.tradeoff && (
+                              <p>
+                                <strong>
+                                  Trade-off:
+                                </strong>{' '}
+                                {
+                                  alternative.tradeoff
+                                }
+                              </p>
+                            )}
+
+                            {alternative.code && (
+                              <pre className="fixed-code">
+                                <code>
+                                  {
+                                    alternative.code
+                                  }
+                                </code>
+                              </pre>
+                            )}
+
+                          </div>
+                        );
+                      }
+                    )}
+
+                  </div>
+
+                )}
+
+                {/* CODE QUALITY */}
+
+                {result.qualitySuggestions?.length > 0 && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      ✨ CODE QUALITY
+                    </span>
+
+                    {result.qualitySuggestions.map(
+                      (suggestion, index) => {
+
+                        if (
+                          typeof suggestion ===
+                          'string'
+                        ) {
+                          return (
+                            <p key={index}>
+                              • {suggestion}
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div key={index}>
+
+                            <p>
+                              <strong>
+                                {suggestion.area ||
+                                  `Suggestion ${index + 1}`}
+                              </strong>
+                            </p>
+
+                            {suggestion.suggestion && (
+                              <p>
+                                {
+                                  suggestion.suggestion
+                                }
+                              </p>
+                            )}
+
+                          </div>
+                        );
+                      }
+                    )}
+
+                  </div>
+
+                )}
+
+                {/* BEGINNER MISTAKES */}
+
+                {result.beginnerMistakes?.length > 0 && (
+
+                  <div className="analysis-section">
+
+                    <span className="analysis-label">
+                      🎓 BEGINNER MISTAKES
+                    </span>
+
+                    {result.beginnerMistakes.map(
+                      (mistake, index) => (
+                        <p key={index}>
+                          • {mistake}
+                        </p>
+                      )
+                    )}
+
+                  </div>
+
+                )}
+
+                {/* CONCEPT */}
+
+                <div className="analysis-section">
+
+                  <span className="analysis-label">
+                    🧠 CONCEPT
+                  </span>
+
+                  <p>
+                    {normalizeConcept(
+                      result.concept
+                    )}
+                  </p>
+
+                </div>
+
+                {/* LEARNING TIP */}
+
+                <div className="analysis-section">
+
+                  <span className="analysis-label">
+                    📚 LEARNING TIP
+                  </span>
+
+                  <p>
+                    {result.learningTip}
+                  </p>
+
+                </div>
 
               </div>
 
